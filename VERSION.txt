@@ -1,0 +1,26 @@
+OmniPlay Universal Player — build 1.22.0
+Built: 2026-11-09
+
+Highlights in this build
+------------------------
+* Motion & finish design pass: page rise-in, card lift, button sheen and press,
+  nav accent rail, panel/sheet spring, toast slide, breathing play button,
+  timeline handle growth — all disabled under prefers-reduced-motion and the
+  low-memory profile.
+* Device matrix audit: 14 viewports (320x568 .. 3840x2160) + 200% zoom and
+  135% system text, 44 CSS px touch targets, with a self-test that fails the
+  run if the touch rule stops working.
+* Optimisations: HLS player-size quality cap + memory-aware buffers, DASH
+  memory-aware buffering, Web Audio graph bypass when no effects are active,
+  danmaku node pool with adaptive rate, bounded storyboard cache, canvas
+  toBlob screenshots, idle decode loop while paused, hardware-decoding status
+  that separates "requested" from "verified", large-download guard on
+  low-memory devices, torrent gateway preference on low-memory devices.
+
+Everything from earlier builds is included: multi-engine playback (native,
+HLS.js, DASH.js, WebCodecs), embedded ASS/PGS subtitles, multi-audio, danmaku,
+torrents (WebTorrent + gateway), downloads with true range resume, M3U
+playlists, embed platform with 20 parameters, developer API and web component,
+device profiles, source adapters, CORS diagnostics and link checker.
+
+Run: npm install --ignore-scripts && npm run build && serve dist/

@@ -1,0 +1,47 @@
+{
+  "name": "omniplay",
+  "private": true,
+  "version": "1.22.0",
+  "description": "OmniPlay \u2014 a universal, client-side browser media player (VLC + MX Player class) built with TypeScript, WebCodecs, MSE, Web Audio and a styled ASS subtitle engine.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "node scripts/smoke-dev.mjs",
+    "build": "tsc --noEmit && vite build",
+    "build:fast": "vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "zip": "node scripts/package.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "shots": "node scripts/shots.mjs",
+    "smoke:webcodecs": "node scripts/smoke-webcodecs.mjs",
+    "audit": "node scripts/audit.mjs",
+    "ui": "node scripts/smoke-ui.mjs",
+    "pwa": "node scripts/smoke-pwa.mjs",
+    "demo": "node scripts/make-demo-clip.mjs",
+    "test:all": "npm run typecheck && npm test && npm run build && npm run smoke && npm run ui && npm run pro && npm run dev && npm run embed && npm run longtext && npm run cors && npm run multiaudio && npm run embedded && npm run pwa && npm run audit",
+    "multiaudio": "node scripts/smoke-multiaudio.mjs",
+    "make:multiaudio": "node scripts/make-multiaudio-clip.mjs",
+    "embedded": "node scripts/smoke-embedded-subs.mjs",
+    "make:embedded": "node scripts/make-embedded-subs-clip.mjs",
+    "cors": "node scripts/smoke-cors.mjs",
+    "embed": "node scripts/smoke-embed.mjs",
+    "longtext": "node scripts/smoke-longtext.mjs",
+    "pro": "node scripts/smoke-pro.mjs"
+  },
+  "dependencies": {
+    "dashjs": "^5.3.0",
+    "hls.js": "^1.7.4",
+    "mediabunny": "^1.65.2",
+    "webtorrent": "^3.0.21"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "puppeteer-core": "^23.11.1",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5",
+    "vitest": "^2.1.9"
+  }
+}
