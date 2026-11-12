@@ -1529,8 +1529,22 @@ class PlayerPage implements PageInstance, PlayerApi {
     const { TorrentSession, gatewayUrl } = await import('../../torrent/engine');
     const { parseMagnet } = await import('../../torrent/magnet');
     const info = parseMagnet(magnet);
-    const gateway = gatewayUrl(magnet, this.store.settings.torrentGateway);
+    const provider = this.store.settings.torrentProvider;
+
+    // Your own gateway wins; webtor.io is the ready-made third-party option.
+    const gateway = provider === 'webtor' ? null : gatewayUrl(magnet, this.store.settings.torrentGateway);
     if (gateway) return { url: gateway, name: info?.name ?? 'Torrent' };
+
+    if (provider === 'auto' || provider === 'webtor') {
+      const { webtorEmbedUrl } = await import('../../torrent/webtor');
+      this.setLoading(false);
+      this.showProvider({
+        name: 'webtor.io',
+        embedUrl: webtorEmbedUrl(magnet),
+        reason: 'streamed by webtor.io (third party)',
+      });
+      return null;
+    }
 
     this.setLoading(true, 'Connecting to the swarm…');
     const session = new TorrentSession();
