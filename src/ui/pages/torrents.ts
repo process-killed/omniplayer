@@ -5,7 +5,7 @@ import { notice, pageHead } from '../components';
 import { formatTime } from '../../utils/format';
 import { parseMagnet, isMagnet, formatBytes } from '../../torrent/magnet';
 import { TorrentSession, gatewayUrl, type TorrentFile, type TorrentStats } from '../../torrent/engine';
-import { webtorEmbedUrl, webtorWebUrl } from '../../torrent/webtor';
+import { webtorWebUrl } from '../../torrent/webtor';
 
 /**
  * Torrents: paste a magnet link, pick a file, watch it.
@@ -42,8 +42,8 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
   const provider = () => store.settings.torrentProvider;
 
   const playWithWebtor = (magnet: string) => {
-    const spec = session.specFromUrl(webtorEmbedUrl(magnet), 'webtor.io');
-    spec.provider = { name: 'webtor.io', embedUrl: webtorEmbedUrl(magnet), reason: 'streamed by webtor.io (third party)' };
+    // The player recognises a magnet URL and hands it to the webtor.io SDK.
+    const spec = session.specFromUrl(magnet, 'Torrent');
     session.play(spec);
   };
 
