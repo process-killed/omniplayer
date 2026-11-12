@@ -118,7 +118,9 @@ self.addEventListener('fetch', (event) => {
 }
 
 export default defineConfig({
-  base: './',
+  // Absolute base: SPA deep links (/#/embed) and Cloudflare Pages sub-paths
+  // resolve assets correctly, and a relative './' base breaks them.
+  base: '/',
   plugins: [serviceWorkerPlugin()],
   build: {
     target: 'es2022',
