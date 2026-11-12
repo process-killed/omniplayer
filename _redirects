@@ -1,0 +1,6 @@
+# Cloudflare Pages SPA fallback.
+# The app routes with the URL hash (#/embed, #/player…), so only unknown
+# paths need to fall back to index.html — assets and the manifest are real
+# files and are served directly.
+/index.html  /index.html  200
+/*           /index.html  200

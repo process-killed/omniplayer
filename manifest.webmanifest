@@ -1,0 +1,144 @@
+{
+  "name": "OmniPlay \u2014 Universal Media Player",
+  "short_name": "OmniPlay",
+  "description": "Private, universal browser media player: local files, direct links, HLS, DASH, multi-audio and styled ASS subtitles. Everything plays on your device.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "fullscreen"
+  ],
+  "orientation": "any",
+  "background_color": "#0a0b0f",
+  "theme_color": "#0a0b0f",
+  "dir": "ltr",
+  "lang": "en",
+  "categories": [
+    "video",
+    "entertainment",
+    "utilities",
+    "productivity"
+  ],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": [
+      "navigate-existing",
+      "auto"
+    ]
+  },
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./screenshot-wide.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Player with the full control bar and subtitle overlay"
+    },
+    {
+      "src": "./screenshot-narrow.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Library on a phone"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open media",
+      "short_name": "Open",
+      "description": "Pick a local video or audio file",
+      "url": "./#/open",
+      "icons": [
+        {
+          "src": "./icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Play a link",
+      "short_name": "Link",
+      "description": "Paste a direct media, HLS or DASH URL",
+      "url": "./#/url",
+      "icons": [
+        {
+          "src": "./icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Continue watching",
+      "short_name": "Continue",
+      "description": "Resume from your history",
+      "url": "./#/history",
+      "icons": [
+        {
+          "src": "./icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./#/open",
+      "accept": {
+        "video/mp4": [
+          ".mp4",
+          ".m4v"
+        ],
+        "video/x-matroska": [
+          ".mkv"
+        ],
+        "video/webm": [
+          ".webm"
+        ],
+        "video/quicktime": [
+          ".mov"
+        ],
+        "video/x-msvideo": [
+          ".avi"
+        ],
+        "video/mp2t": [
+          ".ts",
+          ".m2ts"
+        ],
+        "audio/mpeg": [
+          ".mp3"
+        ],
+        "audio/flac": [
+          ".flac"
+        ]
+      }
+    }
+  ]
+}
