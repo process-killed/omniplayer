@@ -1,15 +1,15 @@
-/* OmniPlay service worker — generated 2026-11-12T04:33:06.067Z */
-const VERSION = 'omniplay-mwd1ybkg';
+/* OmniPlay service worker — generated 2026-11-12T04:57:55.423Z */
+const VERSION = 'omniplay-mwd2u8rh';
 const PRECACHE = [
   "./",
   "./index.html",
   "./assets/engine-dash-DjAG7qgI.js",
   "./assets/engine-hls-CfwCUrIF.js",
   "./assets/engine-webcodecs-CtTuyH-T.js",
-  "./assets/index-CrHaJwPm.js",
+  "./assets/index-BNdtdhct.js",
   "./assets/naming-DoQgVYzv.js",
   "./assets/style-CrLYjMvq.css",
-  "./assets/webComponent-BcVVDBG2.js",
+  "./assets/webComponent-BZqm-6g6.js",
   "./favicon.svg",
   "./icon-180.png",
   "./icon-192.png",
