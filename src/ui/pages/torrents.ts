@@ -5,6 +5,7 @@ import { notice, pageHead } from '../components';
 import { formatTime } from '../../utils/format';
 import { parseMagnet, isMagnet, formatBytes } from '../../torrent/magnet';
 import { TorrentSession, gatewayUrl, type TorrentFile, type TorrentStats } from '../../torrent/engine';
+import { webtorEmbedUrl, webtorWebUrl } from '../../torrent/webtor';
 
 /**
  * Torrents: paste a magnet link, pick a file, watch it.
@@ -38,6 +39,13 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
   const gatewayNote = el('div');
 
   const gatewayConfigured = () => store.settings.torrentGateway.trim().length > 0;
+  const provider = () => store.settings.torrentProvider;
+
+  const playWithWebtor = (magnet: string) => {
+    const spec = session.specFromUrl(webtorEmbedUrl(magnet), 'webtor.io');
+    spec.provider = { name: 'webtor.io', embedUrl: webtorEmbedUrl(magnet), reason: 'streamed by webtor.io (third party)' };
+    session.play(spec);
+  };
 
   const renderGatewayNote = () => {
     gatewayNote.innerHTML = '';
@@ -62,7 +70,7 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
     }
     gatewayNote.append(
       notice(
-        'Browsers can only reach WebRTC peers, so most classic torrent swarms will not stream directly. Add a torrent gateway in Settings → Torrents to play any magnet, or use a link that carries a web seed.',
+        'Magnets play through webtor.io by default: their servers fetch the torrent and stream it over HTTPS, so any swarm works. The torrent is downloaded by them, not by you — add your own gateway in Settings → Torrents if you would rather keep that traffic yours.',
         'info',
       ),
     );
@@ -146,6 +154,12 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
     addButton.disabled = true;
     setStatus(`<div class="p-note">Looking for peers for ${esc(info.name)}…</div>`);
 
+    // webtor.io is the default third-party route when no gateway of your own exists.
+    if (provider() === 'webtor' || (provider() === 'auto' && !gatewayConfigured())) {
+      playWithWebtor(value);
+      return;
+    }
+
     // Gateway first when configured: it is the reliable route.
     const gateway = gatewayUrl(value, store.settings.torrentGateway);
     if (gateway) {
@@ -198,12 +212,43 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
 
   renderGatewayNote();
 
+  const providerSelect = el('select', { class: 'select' }) as HTMLSelectElement;
+  for (const [value, label] of [
+    ['auto', 'Auto — my gateway, else webtor.io'],
+    ['webtor', 'webtor.io (third party)'],
+    ['gateway', 'My gateway only'],
+    ['webtorrent', 'In-page WebTorrent only'],
+  ] as Array<[string, string]>) {
+    const option = el('option', { value, text: label });
+    if (store.settings.torrentProvider === value) option.selected = true;
+    providerSelect.append(option);
+  }
+  providerSelect.addEventListener('change', () => {
+    store.updateSettings({ torrentProvider: providerSelect.value as never });
+    renderGatewayNote();
+    toast('Torrent provider updated', 'ok');
+  });
+
   root.append(
     pageHead('Torrents', 'Play a magnet link — files stream through WebTorrent, or instantly through a gateway you configure.'),
     el('div', { class: 'card' }, [
       el('div', { class: 'row' }, [input, addButton, pasteButton]),
+      el('div', { class: 'row', style: { marginTop: '10px' } }, [
+        el('span', { class: 'p-note', text: 'Provider' }),
+        providerSelect,
+      ]),
       gatewayNote,
       statusHost,
+      el('div', { class: 'row', style: { marginTop: '10px' } }, [
+        button('Open on webtor.io', 'externalLink', () => {
+          const value = input.value.trim();
+          if (!value) {
+            toast('Paste a magnet link first', 'warn');
+            return;
+          }
+          window.open(webtorWebUrl(value), '_blank', 'noopener');
+        }),
+      ]),
     ]),
     filesHost,
     el('div', { class: 'card' }, [

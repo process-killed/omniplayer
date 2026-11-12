@@ -357,6 +357,8 @@ export interface Settings {
   danmakuSpeed: number;
   danmakuArea: number;
   torrentGateway: string;
+  /** How magnets play: auto (gateway if set, else webtor.io), or forced. */
+  torrentProvider: 'auto' | 'webtor' | 'gateway' | 'webtorrent';
   /** 'auto' follows the detected device profile. */
   deviceProfile: 'auto' | 'low' | 'balanced' | 'high' | 'tv';
   /** Optional CORS proxy template, e.g. https://worker.dev/?url={url} */

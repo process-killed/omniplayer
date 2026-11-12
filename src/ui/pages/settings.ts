@@ -247,7 +247,7 @@ export function createSettingsPage(ctx: PageContext): PageInstance {
             settingRow('Persistent storage', 'Ask the browser not to evict your history and settings.', persistButton),
           ]),
           sectionCard('Updates', 'A new build is downloaded in the background; you choose when to reload.', [
-            settingRow('Version', 'OmniPlay 1.22.0', updateButton),
+            settingRow('Version', 'OmniPlay 1.24.0', updateButton),
             el('div', { class: 'notice notice--info', html: `${icon('info', 16)}<span>When an update is ready you get a “Reload” prompt — playback is never interrupted by a forced refresh.</span>` }),
           ]),
           sectionCard('Platform notes', 'What installation means on each platform.', [
@@ -408,7 +408,26 @@ export function createSettingsPage(ctx: PageContext): PageInstance {
           store.updateSettings({ torrentGateway: gatewayInput.value.trim() });
           toast(gatewayInput.value.trim() ? 'Torrent gateway saved' : 'Gateway cleared — WebTorrent only', 'ok');
         });
+        const providerSelect = el('select', { class: 'select' }) as HTMLSelectElement;
+        for (const [value, label] of [
+          ['auto', 'Auto — my gateway, else webtor.io'],
+          ['webtor', 'webtor.io (third party)'],
+          ['gateway', 'My gateway only'],
+          ['webtorrent', 'In-page WebTorrent only'],
+        ] as Array<[string, string]>) {
+          const option = el('option', { value, text: label });
+          if (settings.torrentProvider === value) option.selected = true;
+          providerSelect.append(option);
+        }
+        providerSelect.addEventListener('change', () => {
+          store.updateSettings({ torrentProvider: providerSelect.value as never });
+          toast('Torrent provider updated', 'ok');
+        });
+
         panel.append(
+          sectionCard('Torrent provider', 'How a magnet link is turned into playable video.', [
+            settingRow('Provider', 'webtor.io streams any magnet through their servers; your own gateway keeps the traffic yours.', providerSelect),
+          ]),
           sectionCard('Torrent gateway', 'Browsers cannot reach classic TCP swarms. A gateway fetches the torrent server-side and serves the file over HTTP.', [
             settingRow('Gateway URL', 'Use {magnet} or {hash} as the placeholder. Leave empty for WebTorrent only.', gatewayInput),
             notice(
@@ -656,7 +675,7 @@ export function createSettingsPage(ctx: PageContext): PageInstance {
             settingRow('All settings', 'History and bookmarks are kept.', actionButton('Reset to defaults', resetAll, true)),
           ]),
           sectionCard('Build', 'Version information.', [
-            el('div', { class: 'code-block', text: 'OmniPlay 1.22.0\nEngines: native · hls.js · dash.js · WebCodecs (mediabunny)\nSubtitles: SRT · VTT · ASS/SSA · TTML' }),
+            el('div', { class: 'code-block', text: 'OmniPlay 1.24.0\nEngines: native · hls.js · dash.js · WebCodecs (mediabunny)\nSubtitles: SRT · VTT · ASS/SSA · TTML' }),
           ]),
         );
         break;
