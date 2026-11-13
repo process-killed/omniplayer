@@ -135,7 +135,7 @@ export const DEFAULT_SETTINGS: Settings = {
   danmakuSpeed: 1,
   danmakuArea: 0.5,
   torrentGateway: '',
-  torrentProvider: 'auto',
+  torrentProvider: 'webtorrent',
   deviceProfile: 'auto',
   corsProxy: '',
 

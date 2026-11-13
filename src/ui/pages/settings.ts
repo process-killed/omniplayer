@@ -410,10 +410,9 @@ export function createSettingsPage(ctx: PageContext): PageInstance {
         });
         const providerSelect = el('select', { class: 'select' }) as HTMLSelectElement;
         for (const [value, label] of [
-          ['auto', 'Auto — my gateway, else webtor.io'],
-          ['webtor', 'webtor.io (third party)'],
+          ['auto', 'Auto — my gateway, else in-page WebTorrent'],
+          ['webtorrent', 'In-page WebTorrent (user side)'],
           ['gateway', 'My gateway only'],
-          ['webtorrent', 'In-page WebTorrent only'],
         ] as Array<[string, string]>) {
           const option = el('option', { value, text: label });
           if (settings.torrentProvider === value) option.selected = true;
@@ -426,7 +425,7 @@ export function createSettingsPage(ctx: PageContext): PageInstance {
 
         panel.append(
           sectionCard('Torrent provider', 'How a magnet link is turned into playable video.', [
-            settingRow('Provider', 'webtor.io streams any magnet through their servers; your own gateway keeps the traffic yours.', providerSelect),
+            settingRow('Provider', 'In-page WebTorrent fetches the swarm in the visitor’s browser; a gateway of your own handles classic TCP swarms.', providerSelect),
           ]),
           sectionCard('Torrent gateway', 'Browsers cannot reach classic TCP swarms. A gateway fetches the torrent server-side and serves the file over HTTP.', [
             settingRow('Gateway URL', 'Use {magnet} or {hash} as the placeholder. Leave empty for WebTorrent only.', gatewayInput),

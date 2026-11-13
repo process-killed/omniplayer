@@ -5,7 +5,6 @@ import { notice, pageHead } from '../components';
 import { formatTime } from '../../utils/format';
 import { parseMagnet, isMagnet, formatBytes } from '../../torrent/magnet';
 import { TorrentSession, gatewayUrl, type TorrentFile, type TorrentStats } from '../../torrent/engine';
-import { webtorWebUrl } from '../../torrent/webtor';
 
 /**
  * Torrents: paste a magnet link, pick a file, watch it.
@@ -39,13 +38,6 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
   const gatewayNote = el('div');
 
   const gatewayConfigured = () => store.settings.torrentGateway.trim().length > 0;
-  const provider = () => store.settings.torrentProvider;
-
-  const playWithWebtor = (magnet: string) => {
-    // The player recognises a magnet URL and hands it to the webtor.io SDK.
-    const spec = session.specFromUrl(magnet, 'Torrent');
-    session.play(spec);
-  };
 
   const renderGatewayNote = () => {
     gatewayNote.innerHTML = '';
@@ -70,7 +62,7 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
     }
     gatewayNote.append(
       notice(
-        'Magnets play through webtor.io by default: their servers fetch the torrent and stream it over HTTPS, so any swarm works. The torrent is downloaded by them, not by you — add your own gateway in Settings → Torrents if you would rather keep that traffic yours.',
+        'Torrents are fetched in your own browser through WebTorrent: the swarm connects over WebRTC, nothing is proxied through anyone else. Browsers cannot reach classic TCP peers, so swarms without WebRTC peers or a web seed need a gateway of your own (Settings → Torrents).',
         'info',
       ),
     );
@@ -154,12 +146,6 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
     addButton.disabled = true;
     setStatus(`<div class="p-note">Looking for peers for ${esc(info.name)}…</div>`);
 
-    // webtor.io is the default third-party route when no gateway of your own exists.
-    if (provider() === 'webtor' || (provider() === 'auto' && !gatewayConfigured())) {
-      playWithWebtor(value);
-      return;
-    }
-
     // Gateway first when configured: it is the reliable route.
     const gateway = gatewayUrl(value, store.settings.torrentGateway);
     if (gateway) {
@@ -214,10 +200,9 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
 
   const providerSelect = el('select', { class: 'select' }) as HTMLSelectElement;
   for (const [value, label] of [
-    ['auto', 'Auto — my gateway, else webtor.io'],
-    ['webtor', 'webtor.io (third party)'],
+    ['auto', 'Auto — my gateway, else in-page WebTorrent'],
+    ['webtorrent', 'In-page WebTorrent (user side)'],
     ['gateway', 'My gateway only'],
-    ['webtorrent', 'In-page WebTorrent only'],
   ] as Array<[string, string]>) {
     const option = el('option', { value, text: label });
     if (store.settings.torrentProvider === value) option.selected = true;
@@ -240,14 +225,6 @@ export function createTorrentsPage(ctx: PageContext): PageInstance {
       gatewayNote,
       statusHost,
       el('div', { class: 'row', style: { marginTop: '10px' } }, [
-        button('Open on webtor.io', 'externalLink', () => {
-          const value = input.value.trim();
-          if (!value) {
-            toast('Paste a magnet link first', 'warn');
-            return;
-          }
-          window.open(webtorWebUrl(value), '_blank', 'noopener');
-        }),
       ]),
     ]),
     filesHost,

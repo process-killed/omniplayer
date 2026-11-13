@@ -1517,38 +1517,7 @@ class PlayerPage implements PageInstance, PlayerApi {
     document.title = this.titleNode.textContent;
   }
 
-  /** Torrent playback through the official webtor.io embed SDK. */
-  private async showWebtor(magnet: string, title?: string): Promise<void> {
-    this.hideProvider();
-    this.setLoading(true, 'Connecting to webtor.io…');
-    this.el.classList.add('is-provider');
-    try {
-      const { mountWebtor } = await import('../../torrent/webtor');
-      this.webtorDispose = await mountWebtor(this.mediaWrap, { magnet, title });
-      this.setLoading(false);
-      this.titleNode.textContent = title ?? 'Torrent';
-      this.subtitleNode.textContent = 'webtor.io · streamed by their servers (third party)';
-      document.title = this.titleNode.textContent;
-    } catch (error) {
-      this.setLoading(false);
-      this.showError(
-        new AppError('network', {
-          message: 'webtor.io could not be reached',
-          detail: (error as Error).message,
-          suggestions: [
-            'Open the magnet on webtor.io directly with the button on the Torrents page.',
-            'Or set your own torrent gateway in Settings → Torrents.',
-          ],
-        }),
-      );
-    }
-  }
-
-  private webtorDispose: (() => void) | null = null;
-
   private hideProvider(): void {
-    this.webtorDispose?.();
-    this.webtorDispose = null;
     this.el.classList.remove('is-provider');
     this.el.querySelector('.provider-frame')?.remove();
   }
@@ -1562,14 +1531,9 @@ class PlayerPage implements PageInstance, PlayerApi {
     const info = parseMagnet(magnet);
     const provider = this.store.settings.torrentProvider;
 
-    // Your own gateway wins; webtor.io is the ready-made third-party option.
-    const gateway = provider === 'webtor' ? null : gatewayUrl(magnet, this.store.settings.torrentGateway);
-    if (gateway) return { url: gateway, name: info?.name ?? 'Torrent' };
-
-    if (provider === 'auto' || provider === 'webtor') {
-      await this.showWebtor(magnet, info?.name);
-      return null;
-    }
+    // A gateway of your own wins; otherwise the swarm is fetched in the page.
+    const gateway = gatewayUrl(magnet, this.store.settings.torrentGateway);
+    if (gateway && provider !== 'webtorrent') return { url: gateway, name: info?.name ?? 'Torrent' };
 
     this.setLoading(true, 'Connecting to the swarm…');
     const session = new TorrentSession();
