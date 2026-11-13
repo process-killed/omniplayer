@@ -303,67 +303,98 @@ function icon(name, size = 22) {
 const SKIP_CACHE = new Map();
 
 /* --------------------------------------------------------------------------
- * 04b. WebTor embed SDK
+ * 04b. WebTorrent (browser client)
  * --------------------------------------------------------------------------
- * The SDK drains whatever sits in `window.webtor` when it loads and replaces
- * that global with its own queue object, so configuration is pushed *before*
- * the script is ensured. One promise per page, so a second player mount can
- * never inject the script twice.
+ * Torrents are downloaded by the viewer's own browser over WebRTC — nothing
+ * is proxied through a server, so this works on static Cloudflare Pages.
+ *
+ * The library (~900 kB) is fetched from a CDN the first time a torrent is
+ * opened and cached for the rest of the session. Only mp4/webm can be decoded
+ * by a browser; mkv/avi releases are reported instead of silently failing.
  * ------------------------------------------------------------------------ */
 
-const WEBTOR_SDK_URL =
-  'https://cdn.jsdelivr.net/npm/@webtor/embed-sdk-js/dist/index.min.js';
+const WEBTORRENT_URL =
+  'https://cdn.jsdelivr.net/npm/webtorrent@1.9.7/webtorrent.min.js';
 
-let webtorSdkPromise = null;
+const TORRENT_TRACKERS = Object.freeze([
+  'wss://tracker.openwebtorrent.com',
+  'wss://tracker.btorrent.xyz',
+  'wss://tracker.webtorrent.dev',
+  'wss://tracker.fastcast.nz',
+  'wss://tracker.files.fm:7073/announce'
+]);
 
-function webtorSdkReady() {
-  return Boolean(
-    window.webtor &&
-      typeof window.webtor.push === 'function' &&
-      !Array.isArray(window.webtor)
-  );
-}
+const BROWSER_VIDEO_RE = /\.(mp4|m4v|webm|ogv|mov)$/i;
+const ANY_VIDEO_RE = /\.(mp4|m4v|webm|ogv|mov|mkv|avi|flv|wmv|ts|m2ts)$/i;
 
-function ensureWebtorSdk(timeoutMs = 12000) {
-  if (webtorSdkReady()) return Promise.resolve(true);
-  if (webtorSdkPromise) return webtorSdkPromise;
+let webTorrentLibPromise = null;
 
-  webtorSdkPromise = new Promise((resolve) => {
+function ensureWebTorrentLib(timeoutMs = 25000) {
+  if (typeof window.WebTorrent === 'function') return Promise.resolve(window.WebTorrent);
+  if (webTorrentLibPromise) return webTorrentLibPromise;
+
+  webTorrentLibPromise = new Promise((resolve, reject) => {
     let settled = false;
-    let poll = 0;
 
-    const finish = (ok) => {
+    const finish = (error) => {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
       clearInterval(poll);
-      resolve(ok);
+      clearTimeout(timer);
+
+      if (error) {
+        webTorrentLibPromise = null;
+        reject(error);
+      } else {
+        resolve(window.WebTorrent);
+      }
     };
 
-    const timer = setTimeout(() => finish(false), timeoutMs);
+    const timer = setTimeout(() => finish(new Error('Torrent engine timed out.')), timeoutMs);
+    const poll = setInterval(() => {
+      if (typeof window.WebTorrent === 'function') finish();
+    }, 120);
 
-    poll = setInterval(() => {
-      if (webtorSdkReady()) finish(true);
-    }, 150);
-
-    const existing = document.querySelector('script[src*="@webtor/embed-sdk-js"]');
+    const existing = document.querySelector('script[data-webtorrent-lib]');
 
     if (existing) {
-      // Already in the document (index.html loads it async): wait for the poll.
-      existing.addEventListener('error', () => finish(false), { once: true });
+      existing.addEventListener('error', () => finish(new Error('Torrent engine failed.')), {
+        once: true
+      });
       return;
     }
 
     const script = document.createElement('script');
-    script.src = WEBTOR_SDK_URL;
+    script.src = WEBTORRENT_URL;
     script.async = true;
-    script.charset = 'utf-8';
-    script.dataset.webtorSdk = 'true';
-    script.addEventListener('error', () => finish(false), { once: true });
+    script.dataset.webtorrentLib = 'true';
+    script.addEventListener('error', () => finish(new Error('Torrent engine failed.')), {
+      once: true
+    });
     document.head.appendChild(script);
   });
 
-  return webtorSdkPromise;
+  return webTorrentLibPromise;
+}
+
+/** 1.2 MB/s style speed label. */
+function formatSpeed(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return `${Math.round(value)} B/s`;
+  if (value < 1048576) return `${(value / 1024).toFixed(0)} KB/s`;
+  return `${(value / 1048576).toFixed(1)} MB/s`;
+}
+
+/** Largest playable video file in the torrent. */
+function pickTorrentFile(files = []) {
+  const list = Array.from(files || []);
+  if (!list.length) return null;
+
+  const playable = list.filter((file) => BROWSER_VIDEO_RE.test(file.name));
+  const videos = list.filter((file) => ANY_VIDEO_RE.test(file.name));
+  const pool = playable.length ? playable : videos.length ? videos : list;
+
+  return pool.slice().sort((a, b) => (b.length || 0) - (a.length || 0))[0] || null;
 }
 
 export class VideoPlayerEngine {
@@ -431,8 +462,13 @@ export class VideoPlayerEngine {
     this.torrentId = null;
     this.torrentMagnet = '';
     this.torrentTimer = null;
-    this.torrentObserver = null;
-    this.torrentReady = false;
+    this.torrentStatsTimer = null;
+    this.torrentClient = null;
+    this.torrent = null;
+    this.torrentFile = null;
+    this.torrentBlobUrl = null;
+    this.torrentPlaying = false;
+    this.torrentMagnet = '';
     this.fullscreen = false;
     this.mini = false;
     this.theater = false;
@@ -572,7 +608,20 @@ export class VideoPlayerEngine {
         return;
       }
 
-      this.mountTorrent(magnet, stream);
+      this.startTorrent(magnet, stream, {
+        anilistId,
+        malId,
+        episode,
+        animeTitle,
+        poster,
+        episodeDurationSec,
+        onNextEpisode,
+        onPreviousEpisode,
+        onError
+      }).catch((error) => {
+        console.error('[Player] torrent start failed', error);
+        onError?.('Playback error', 'The torrent player could not start.');
+      });
       return;
     }
 
@@ -692,7 +741,7 @@ export class VideoPlayerEngine {
     // A torrent session hides this host; a direct stream must bring it back.
     host.style.display = 'block';
 
-    this.clearTorrent();
+    this.stopTorrent();
 
     this.session += 1;
     const session = this.session;
@@ -711,7 +760,53 @@ export class VideoPlayerEngine {
       onEnded
     };
 
-    // Park the other two engines so nothing paints over the video.
+    this.prepareShell({ poster, animeTitle, episode, subtitles });
+
+    this.loadSource(url, isM3u8);
+
+    if (malId) {
+      this.fetchSkipTimes(malId, episode, episodeDurationSec).then((items) => {
+        if (session === this.session) this.skipIntervals = items;
+      });
+    }
+
+    const video = this.video;
+
+    video.addEventListener('loadedmetadata', () => {
+      if (session !== this.session) return;
+
+      if (
+        initialTime > 10 &&
+        Number.isFinite(video.duration) &&
+        initialTime < video.duration - 10
+      ) {
+        video.currentTime = initialTime;
+        this.flash('forward', `Resumed at ${fmtTime(initialTime)}`);
+      }
+
+      this.updateTime();
+      this.updateQualityChip();
+    });
+
+    this.setupMediaSession();
+    this.updateControlsState();
+
+    return this;
+  }
+
+  /* ------------------------------------------------------------- build UI */
+
+  /**
+   * Builds the player surface and wires every control. Shared by direct
+   * streams and torrents so both get the same chrome, menu and gestures.
+   */
+  prepareShell({ poster = '', animeTitle = 'Anime', episode = 1, subtitles = [] } = {}) {
+    const host = $('#artplayerContainer');
+    if (!host) throw new Error('Player container is missing.');
+
+    host.style.display = 'block';
+
+    // Park the other engines so nothing paints over the video.
     const iframe = $('#torrentIframe');
     if (iframe) {
       iframe.style.display = 'none';
@@ -750,44 +845,13 @@ export class VideoPlayerEngine {
 
     this.applyPicture();
     this.applySubtitleStyle();
-
-    this.loadSource(url, isM3u8);
     this.bindEverything();
 
     this.subtitles = Array.isArray(subtitles) ? subtitles.filter((item) => item?.url) : [];
     this.loadSubtitleTrack();
 
-    if (malId) {
-      this.fetchSkipTimes(malId, episode, episodeDurationSec).then((items) => {
-        if (session === this.session) this.skipIntervals = items;
-      });
-    }
-
-    const video = this.video;
-
-    video.addEventListener('loadedmetadata', () => {
-      if (session !== this.session) return;
-
-      if (
-        initialTime > 10 &&
-        Number.isFinite(video.duration) &&
-        initialTime < video.duration - 10
-      ) {
-        video.currentTime = initialTime;
-        this.flash('forward', `Resumed at ${fmtTime(initialTime)}`);
-      }
-
-      this.updateTime();
-      this.updateQualityChip();
-    });
-
-    this.setupMediaSession();
-    this.updateControlsState();
-
-    return this;
+    return host;
   }
-
-  /* ------------------------------------------------------------- build UI */
 
   buildShell(host, poster, title, episode) {
     const root = document.createElement('div');
@@ -856,9 +920,23 @@ export class VideoPlayerEngine {
       </div>
 
       <div class="afp-badges">
+        <span class="afp-badge" data-badge="torrent" hidden></span>
         <span class="afp-badge" data-badge="speed" hidden></span>
         <span class="afp-badge" data-badge="loop" hidden></span>
         <span class="afp-badge" data-badge="sleep" hidden></span>
+      </div>
+
+      <div class="afp-torstate" hidden>
+        <div class="afp-torstate__top">
+          <span class="afp-torstate__spin"></span>
+          <b data-tor-label>Connecting to peers…</b>
+        </div>
+        <div class="afp-torstate__bar"><i data-tor-fill></i></div>
+        <div class="afp-torstate__meta">
+          <span data-tor-peers>0 peers</span>
+          <span data-tor-speed>0 KB/s</span>
+          <span data-tor-pct>0%</span>
+        </div>
       </div>
 
       <div class="afp-bottom">
@@ -964,7 +1042,14 @@ export class VideoPlayerEngine {
       top: $('.afp-top', root),
       badgeSpeed: $('[data-badge="speed"]', root),
       badgeLoop: $('[data-badge="loop"]', root),
-      badgeSleep: $('[data-badge="sleep"]', root)
+      badgeSleep: $('[data-badge="sleep"]', root),
+      badgeTorrent: $('[data-badge="torrent"]', root),
+      torState: $('.afp-torstate', root),
+      torLabel: $('[data-tor-label]', root),
+      torFill: $('[data-tor-fill]', root),
+      torPeers: $('[data-tor-peers]', root),
+      torSpeed: $('[data-tor-speed]', root),
+      torPct: $('[data-tor-pct]', root)
     };
 
     const savedVolume = clamp(storageGet(STORE.volume, 1), 0, 1);
@@ -989,248 +1074,292 @@ export class VideoPlayerEngine {
   /* -------------------------------------------------------------- torrent */
 
   /**
-   * Torrent playback runs inside WebTor's own player, driven through their
-   * embed SDK.
+   * Browser-side torrent playback.
    *
-   * Order matters, and it is the order their docs describe:
-   *   1. create the mount element,
-   *   2. queue the configuration on `window.webtor`,
-   *   3. make sure the SDK script is loaded (it drains the queue on load),
-   *   4. wait until the SDK has actually created its iframe before we call
-   *      the stream "ready".
+   * Nothing is proxied: the viewer's own browser joins the WebRTC swarm,
+   * downloads the pieces and feeds the same <video> element that every other
+   * source uses. That is what makes this work on static Cloudflare Pages.
    *
-   * The frame is intentionally not sandboxed: WebTor is a session-based cloud
-   * service, and a sandboxed frame has its storage refused, which is what
-   * produced the /auth/session/refresh 401 and the marketing page.
+   * Playback strategy:
+   *   1. stream the file through MediaSource (plays while it downloads),
+   *   2. fall back to a blob URL if the container is not streamable,
+   *   3. report clearly when the release is MKV/AVI, which no browser decodes.
    */
-  async mountTorrent(magnet, stream = {}) {
-    const host = $('#torrentPlayerContainer');
+  async startTorrent(magnet, stream = {}, options = {}) {
+    const host = $('#artplayerContainer');
     if (!host) return;
 
-    this.clearTorrent();
-
-    document.body.classList.remove('afp-playing');
-
-    const artHost = $('#artplayerContainer');
-    if (artHost) artHost.style.display = 'none';
-
-    const embedFrame = $('#torrentIframe');
-    if (embedFrame) {
-      embedFrame.style.display = 'none';
-      if (embedFrame.src && embedFrame.src !== 'about:blank') embedFrame.src = 'about:blank';
+    if (!/^magnet:\?xt=urn:btih:[a-z0-9]{32,40}/i.test(String(magnet))) {
+      options.onError?.('Playback error', 'This torrent link is not valid.');
+      return;
     }
 
-    host.style.display = 'block';
-    host.classList.add('afp-torrent');
-    host.replaceChildren();
+    this.stopTorrent();
 
+    this.session += 1;
     const session = this.session;
-    const mountId = `afp-torrent-${Date.now().toString(36)}-${Math.random()
-      .toString(16)
-      .slice(2, 8)}`;
 
-    const container = document.createElement('div');
-    container.id = mountId;
-    container.className = 'afp-torrent__mount';
-
-    const status = document.createElement('div');
-    status.className = 'afp-torrent__status';
-    status.innerHTML = `
-      <span class="afp-torrent__spin"></span>
-      <b>Connecting to peers…</b>
-      <em>Starting the torrent player</em>
-    `;
-
-    const pill = document.createElement('a');
-    pill.className = 'afp-torrent__pill';
-    pill.href = `https://webtor.io/show?magnet=${encodeURIComponent(magnet)}&mode=default`;
-    pill.target = '_blank';
-    pill.rel = 'noopener noreferrer';
-    pill.textContent = 'Open on WebTor';
-
-    const fallback = document.createElement('div');
-    fallback.className = 'afp-torrent__fallback';
-    fallback.hidden = true;
-    fallback.innerHTML = `
-      <span>Torrent player not starting?</span>
-      <button type="button" data-retry>Reload</button>
-      <a href="https://webtor.io/show?magnet=${encodeURIComponent(magnet)}&mode=default"
-         target="_blank" rel="noopener noreferrer">Open on WebTor</a>
-    `;
-
-    host.append(container, status, pill, fallback);
-
-    this.torrentContainer = container;
-    this.torrentStatus = status;
-    this.torrentFallback = fallback;
-    this.torrentReady = false;
-    this.torrentMagnet = magnet;
-
-    fallback.querySelector('[data-retry]')?.addEventListener('click', () => {
-      this.mountTorrent(magnet, stream);
-    });
-
-    /* ---- 1. observe first: a loaded SDK builds its iframe synchronously ---- */
-
-    try {
-      this.torrentObserver?.disconnect();
-      this.torrentObserver = new MutationObserver(() => {
-        if (session !== this.session) return;
-        const frame = container.querySelector('iframe');
-        if (frame && !this.torrentReady) this.markTorrentReady(frame);
-      });
-      this.torrentObserver.observe(container, { childList: true, subtree: true });
-    } catch {
-      /* observer unsupported */
-    }
-
-    /* ---- 2. queue the configuration before the SDK is ensured ---- */
-
-    const config = {
-      id: mountId,
-      magnet,
-      width: '100%',
-      height: '100%',
-      mode: 'video',
-      header: false,
-      controls: true,
-      title: safeLabel(stream.title || this.meta.animeTitle || '', 80),
-      poster: this.meta.poster || null,
-      subtitles: [],
-      lang: 'en',
-      referer: location.href,
-      features: {},
-      on: (event) => {
-        if (session !== this.session) return;
-        this.onWebtorEvent(event);
-      }
+    this.meta = {
+      animeTitle: options.animeTitle || 'Anime',
+      episode: options.episode || 1,
+      poster: options.poster || '',
+      anilistId: options.anilistId || null,
+      malId: options.malId || null,
+      duration: options.episodeDurationSec || 1440,
+      onNextEpisode: options.onNextEpisode || null,
+      onPreviousEpisode: options.onPreviousEpisode || null,
+      onError: options.onError || null,
+      onTimeUpdate: null,
+      onEnded: null
     };
 
-    window.webtor = window.webtor || [];
+    this.torrentMagnet = magnet;
 
+    this.prepareShell({
+      poster: this.meta.poster,
+      animeTitle: this.meta.animeTitle,
+      episode: this.meta.episode,
+      subtitles: stream.subtitles || []
+    });
+
+    this.setTorrentState('Loading torrent engine…');
+
+    let WebTorrent;
     try {
-      window.webtor.push(config);
-    } catch (error) {
-      console.debug('[Player] webtor queue rejected the config', error);
+      WebTorrent = await ensureWebTorrentLib();
+    } catch {
+      this.showTorrentError('The torrent engine could not be loaded. Check your connection.');
+      return;
     }
-
-    // If the SDK was already loaded, push() has just built the frame inline.
-    const earlyFrame = container.querySelector('iframe');
-    if (earlyFrame && !this.torrentReady) this.markTorrentReady(earlyFrame);
-
-    /* ---- 3. load the SDK, then give it time to build the player ---- */
-
-    const sdkLoaded = await ensureWebtorSdk();
 
     if (session !== this.session) return;
 
-    if (!sdkLoaded) {
-      // The SDK never arrived (blocked CDN, offline). Fall back to a plain
-      // embed URL rather than leaving the viewer on a spinner.
-      this.loadTorrentUrl(magnet);
+    this.setTorrentState('Connecting to peers…');
+
+    let client;
+    try {
+      client = new WebTorrent({ dht: false, maxConns: 55 });
+    } catch {
+      this.showTorrentError('This browser cannot run the torrent engine.');
       return;
     }
 
-    // The SDK drains its queue on load, but a push that raced the script can
-    // be lost; a second push is harmless because it is idempotent per mount.
-    if (!container.querySelector('iframe')) {
+    this.torrentClient = client;
+
+    client.on('error', (error) => {
+      if (session !== this.session) return;
+      this.showTorrentError(error?.message || 'Torrent client error.');
+    });
+
+    this.setTorrentState('Fetching torrent metadata…');
+
+    const torrent = client.add(magnet, { announce: TORRENT_TRACKERS }, (ready) => {
+      if (session !== this.session) return;
+      this.onTorrentMetadata(ready, session);
+    });
+
+    this.torrent = torrent;
+
+    const onProgress = () => this.updateTorrentStats(session);
+    torrent.on('download', onProgress);
+    torrent.on('upload', onProgress);
+    torrent.on('wire', onProgress);
+    torrent.on('error', (error) => {
+      if (session !== this.session) return;
+      this.showTorrentError(error?.message || 'This torrent could not be opened.');
+    });
+
+    this.torrentStatsTimer = setInterval(onProgress, 1000);
+
+    this.torrentTimer = setTimeout(() => {
+      if (session !== this.session || this.torrentPlaying) return;
+      this.setTorrentState('Still looking for peers — torrents need someone seeding.');
+    }, 40000);
+  }
+
+  onTorrentMetadata(torrent, session) {
+    if (session !== this.session) return;
+
+    const file = pickTorrentFile(torrent.files);
+    if (!file) {
+      this.showTorrentError('This torrent has no video file.');
+      return;
+    }
+
+    this.torrentFile = file;
+    this.setTorrentState(`Loading ${safeLabel(file.name, 44)}…`);
+    this.updateTorrentStats(session);
+
+    if (!BROWSER_VIDEO_RE.test(file.name)) {
+      const ext = String(file.name).split('.').pop().toUpperCase();
+      this.showTorrentError(
+        `Browsers cannot play ${ext} files. Choose a torrent with an MP4 or WebM episode.`
+      );
+      return;
+    }
+
+    this.attachTorrentFile(file, session);
+  }
+
+  attachTorrentFile(file, session) {
+    const video = this.video;
+    if (!video) return;
+
+    const startPlayback = () => {
+      if (session !== this.session) return;
+      this.torrentPlaying = true;
+      clearTimeout(this.torrentTimer);
+      this.torrentTimer = null;
+      this.hideTorrentState();
+      if (this.el?.error) this.el.error.hidden = true;
+      this.updateBadges();
+      video.play().catch(() => {});
+    };
+
+    if (typeof file.streamTo === 'function') {
       try {
-        window.webtor.push(config);
+        const onReady = () => {
+          video.removeEventListener('canplay', onReady);
+          startPlayback();
+        };
+
+        video.addEventListener('canplay', onReady);
+        video.addEventListener(
+          'error',
+          () => {
+            if (this.torrentPlaying) return;
+            this.torrentBlobFallback(file, session);
+          },
+          { once: true }
+        );
+
+        file.streamTo(video);
+
+        // MediaSource only handles some containers; fall back if it stalls.
+        this.torrentTimer = setTimeout(() => {
+          if (session !== this.session || this.torrentPlaying) return;
+          this.torrentBlobFallback(file, session);
+        }, 15000);
+        return;
       } catch {
-        /* already queued */
+        /* fall through to blob */
       }
     }
 
-    if (!this.torrentReady) {
-      this.torrentTimer = setTimeout(() => {
-        if (session !== this.session || this.torrentReady) return;
-        this.loadTorrentUrl(magnet);
-      }, 9000);
-    }
+    this.torrentBlobFallback(file, session);
   }
 
-  /** The SDK created its iframe: the player is up. */
-  markTorrentReady(frame) {
-    this.torrentReady = true;
-    clearTimeout(this.torrentTimer);
-    this.torrentTimer = null;
-    this.torrentStatus?.classList.add('is-hidden');
-    if (this.torrentFallback) this.torrentFallback.hidden = true;
+  torrentBlobFallback(file, session) {
+    if (session !== this.session) return;
 
-    frame.addEventListener('load', () => {
-      this.torrentStatus?.classList.add('is-hidden');
-    });
-  }
+    this.setTorrentState('Preparing the file…');
 
-  /** Events forwarded by the SDK's `on` callback. */
-  onWebtorEvent(event) {
-    const name = String(event?.name || '');
-
-    if (/error|fail|denied/i.test(name)) {
-      this.torrentStatus?.classList.add('is-hidden');
-      if (this.torrentFallback) this.torrentFallback.hidden = false;
-      return;
-    }
-
-    if (event && typeof event === 'object') {
-      this.torrentStatus?.classList.add('is-hidden');
-    }
-  }
-
-  /**
-   * Last resort: load the embed URL directly with the magnet in the query.
-   * This is WebTor's documented direct-link form and needs no handshake.
-   */
-  loadTorrentUrl(magnet) {
-    if (!this.torrentContainer) return;
-
-    clearTimeout(this.torrentTimer);
-
-    const session = this.session;
-    const encoded = encodeURIComponent(magnet);
-
-    this.torrentContainer.replaceChildren();
-
-    const frame = document.createElement('iframe');
-    frame.className = 'afp-torrent__frame';
-    frame.title = 'Torrent player';
-    frame.setAttribute(
-      'allow',
-      'autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write'
-    );
-    frame.setAttribute('webkitallowfullscreen', '');
-    frame.setAttribute('scrolling', 'no');
-    frame.setAttribute('referrerpolicy', 'origin');
-
-    frame.addEventListener('load', () => {
-      if (session === this.session) this.torrentStatus?.classList.add('is-hidden');
-    });
-
-    this.torrentContainer.appendChild(frame);
-    frame.src = `https://webtor.io/show?magnet=${encoded}&mode=video&pwd=%2F`;
-
-    this.torrentTimer = setTimeout(() => {
+    const finish = (url) => {
       if (session !== this.session) return;
-      this.torrentStatus?.classList.add('is-hidden');
-      if (this.torrentFallback) this.torrentFallback.hidden = false;
-    }, 12000);
-  }
 
-  clearTorrent() {
-    clearTimeout(this.torrentTimer);
-    this.torrentTimer = null;
+      if (!url) {
+        this.showTorrentError('This file could not be read from the torrent.');
+        return;
+      }
+
+      this.torrentBlobUrl = url;
+      this.video.src = url;
+      this.torrentPlaying = true;
+      clearTimeout(this.torrentTimer);
+      this.torrentTimer = null;
+      this.hideTorrentState();
+      if (this.el?.error) this.el.error.hidden = true;
+      this.updateBadges();
+      this.video.play().catch(() => {});
+    };
 
     try {
-      this.torrentObserver?.disconnect();
+      if (typeof file.getBlobURL === 'function') {
+        file.getBlobURL((error, url) => finish(error ? null : url));
+      } else {
+        finish(null);
+      }
     } catch {
-      /* noop */
+      finish(null);
     }
-    this.torrentObserver = null;
+  }
 
-    this.torrentContainer = null;
-    this.torrentStatus = null;
-    this.torrentFallback = null;
-    this.torrentReady = false;
+  updateTorrentStats(session) {
+    if (session !== this.session) return;
+
+    const torrent = this.torrent;
+    if (!torrent || !this.el) return;
+
+    const progress = clamp(torrent.progress || 0, 0, 1);
+    const peers = torrent.numPeers || 0;
+    const speed = torrent.downloadSpeed || 0;
+    const percent = Math.round(progress * 100);
+
+    if (this.el.torFill) this.el.torFill.style.width = `${percent}%`;
+    if (this.el.torPeers) this.el.torPeers.textContent = `${peers} peer${peers === 1 ? '' : 's'}`;
+    if (this.el.torSpeed) this.el.torSpeed.textContent = formatSpeed(speed);
+    if (this.el.torPct) this.el.torPct.textContent = `${percent}%`;
+
+    if (this.el.badgeTorrent && !this.el.badgeTorrent.hidden) {
+      this.el.badgeTorrent.textContent = `TORRENT ${percent}%`;
+    }
+
+    if (!this.torrentPlaying) {
+      this.setTorrentLabel(`Downloading ${percent}%`);
+    }
+
+    if (this.statsOpen) this.renderStats();
+  }
+
+  setTorrentState(label) {
+    if (!this.el?.torState) return;
+    this.el.torState.hidden = false;
+    this.setTorrentLabel(label);
+  }
+
+  setTorrentLabel(label) {
+    if (this.el?.torLabel) this.el.torLabel.textContent = label;
+  }
+
+  hideTorrentState() {
+    if (this.el?.torState) this.el.torState.hidden = true;
+  }
+
+  showTorrentError(message) {
+    this.hideTorrentState();
+    clearInterval(this.torrentStatsTimer);
+    this.torrentStatsTimer = null;
+    this.showError(message);
+  }
+
+  stopTorrent() {
+    clearTimeout(this.torrentTimer);
+    this.torrentTimer = null;
+
+    clearInterval(this.torrentStatsTimer);
+    this.torrentStatsTimer = null;
+
+    this.torrentPlaying = false;
+
+    if (this.torrentBlobUrl) {
+      try {
+        URL.revokeObjectURL(this.torrentBlobUrl);
+      } catch {
+        /* noop */
+      }
+      this.torrentBlobUrl = null;
+    }
+
+    try {
+      this.torrentClient?.destroy();
+    } catch {
+      /* already destroyed */
+    }
+
+    this.torrentClient = null;
+    this.torrent = null;
+    this.torrentFile = null;
+    this.torrentMagnet = '';
 
     const host = $('#torrentPlayerContainer');
     if (host) {
@@ -1239,6 +1368,7 @@ export class VideoPlayerEngine {
     }
   }
 
+  /* --------------------------------------------------------------- source */
   /* --------------------------------------------------------------- source */
   /* --------------------------------------------------------------- source */
   /* --------------------------------------------------------------- source */
@@ -2162,6 +2292,15 @@ export class VideoPlayerEngine {
   updateBadges() {
     if (!this.el) return;
 
+    if (this.el.badgeTorrent) {
+      const on = Boolean(this.torrentClient);
+      this.el.badgeTorrent.hidden = !on;
+      if (on) {
+        const percent = Math.round((this.torrent?.progress || 0) * 100);
+        this.el.badgeTorrent.textContent = `TORRENT ${percent}%`;
+      }
+    }
+
     const rate = Number(this.video.playbackRate) || 1;
     if (this.el.badgeSpeed) {
       this.el.badgeSpeed.hidden = Math.abs(rate - 1) < 0.01;
@@ -2853,6 +2992,12 @@ export class VideoPlayerEngine {
       ['Speed', `${(video.playbackRate || 1).toFixed(2)}×`],
       ['Volume', `${Math.round(video.volume * 100)}%`]
     ];
+
+    if (this.torrent) {
+      rows.push(['Peers', String(this.torrent.numPeers || 0)]);
+      rows.push(['Download', formatSpeed(this.torrent.downloadSpeed || 0)]);
+      rows.push(['Torrent', `${Math.round((this.torrent.progress || 0) * 100)}%`]);
+    }
 
     this.el.statsGrid.innerHTML = rows
       .map(
@@ -3928,7 +4073,7 @@ export class VideoPlayerEngine {
       /* noop */
     }
 
-    this.clearTorrent();
+    this.stopTorrent();
     document.body.classList.remove('afp-playing', 'afp-theater');
 
     this.hls = null;

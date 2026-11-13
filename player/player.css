@@ -1072,150 +1072,76 @@ body.afp-theater .player-stage {
 #embedContainer.afp-mini .mobile-touch-actions { display: none !important; }
 
 /* --------------------------------------------------------------------------
-   11b. Torrent embed
+   11b. Torrent download state
    ------------------------------------------------------------------------ */
 
-#torrentPlayerContainer.afp-torrent {
+.afp-torstate {
   position: absolute;
-  inset: 0;
-  background: #0b0b0b;
-  overflow: hidden;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  width: min(340px, calc(100% - 32px));
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(16, 16, 18, .93);
+  border: 1px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .5);
+  color: #fff;
+  font-family: var(--afp-sans);
+  text-align: center;
 }
 
-/* This container lives outside .afp, so `hidden` needs its own rule. */
-#torrentPlayerContainer [hidden] {
-  display: none !important;
-}
-
-.afp-torrent__frame,
-.afp-torrent__mount iframe {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: #000;
-}
-
-.afp-torrent__mount {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-
-.afp-torrent__status {
-  position: absolute;
-  inset: 0;
+.afp-torstate__top {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 24px;
-  text-align: center;
-  background: #0b0b0b;
-  color: #fff;
-  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
-  transition: opacity .3s ease;
+  margin-bottom: 12px;
 }
 
-/* Never covers a working player: a slim bar at the bottom instead. */
-.afp-torrent__fallback {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px 8px 14px;
-  border-radius: 999px;
-  background: rgba(14, 14, 16, .88);
-  border: 1px solid rgba(255, 255, 255, .14);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
-  color: #fff;
-  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
-  font-size: 12px;
-  white-space: nowrap;
-  max-width: calc(100% - 24px);
-}
-
-.afp-torrent__status.is-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.afp-torrent__spin {
-  width: 36px;
-  height: 36px;
+.afp-torstate__spin {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, .2);
+  border: 2px solid rgba(255, 255, 255, .25);
   border-top-color: #fff;
   animation: afpSpin .9s linear infinite;
 }
 
-.afp-torrent__status b { font-size: 13.5px; font-weight: 600; }
+.afp-torstate__top b {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
 
-.afp-torrent__status em {
-  font-size: 11.5px;
-  font-style: normal;
+.afp-torstate__bar {
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, .16);
+  overflow: hidden;
+}
+
+.afp-torstate__bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--afp-accent);
+  transition: width .3s ease;
+}
+
+.afp-torstate__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 11px;
   color: rgba(255, 255, 255, .55);
 }
 
-.afp-torrent__fallback span {
-  color: rgba(255, 255, 255, .7);
-}
-
-.afp-torrent__fallback button,
-.afp-torrent__fallback a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, .18);
-  background: transparent;
-  color: #fff;
-  font: inherit;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.afp-torrent__fallback button {
-  background: #fff;
-  border-color: #fff;
-  color: #111;
-}
-
-.afp-torrent__fallback a:hover { background: rgba(255, 255, 255, .12); }
-
-/* Escape hatch that never covers the player unless you go for it. */
-.afp-torrent__pill {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 3;
-  padding: 6px 11px;
-  border-radius: var(--afp-pill, 999px);
-  background: rgba(12, 12, 14, .55);
-  border: 1px solid rgba(255, 255, 255, .16);
-  color: rgba(255, 255, 255, .8);
-  font-size: 11px;
-  font-weight: 600;
-  text-decoration: none;
-  opacity: .45;
-  transition: opacity .2s ease, background .2s ease;
-}
-
-.afp-torrent__pill:hover,
-.afp-torrent__pill:focus-visible {
-  opacity: 1;
-  background: rgba(12, 12, 14, .85);
-  color: #fff;
-}
+.afp[data-perf="smooth"] .afp-torstate__bar i { transition: none; }
 
 /* --------------------------------------------------------------------------
    12. Responsive
