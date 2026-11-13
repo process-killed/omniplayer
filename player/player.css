@@ -1178,6 +1178,31 @@ body.afp-theater .player-stage {
 
 .afp-torrent__actions a:hover { background: rgba(255, 255, 255, .1); }
 
+/* Escape hatch that never covers the player unless you go for it. */
+.afp-torrent__pill {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  padding: 6px 11px;
+  border-radius: var(--afp-pill, 999px);
+  background: rgba(12, 12, 14, .55);
+  border: 1px solid rgba(255, 255, 255, .16);
+  color: rgba(255, 255, 255, .8);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  opacity: .45;
+  transition: opacity .2s ease, background .2s ease;
+}
+
+.afp-torrent__pill:hover,
+.afp-torrent__pill:focus-visible {
+  opacity: 1;
+  background: rgba(12, 12, 14, .85);
+  color: #fff;
+}
+
 /* --------------------------------------------------------------------------
    12. Responsive
    ------------------------------------------------------------------------ */
