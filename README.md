@@ -1,5 +1,8 @@
 <img width="1536" height="1024" alt="Neon Media Player Interface (1)" src="https://github.com/user-attachments/assets/3b78f0fd-ddce-4ad8-97fc-656d0f03b639" />
+Seedance 2.0 | DeepLaunch.io
 
+OmniPlayer
+A modern, powerful and customizable media player.
 
 # OmniPlay — Universal Browser Media Player
 
