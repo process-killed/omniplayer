@@ -537,8 +537,11 @@ export class PlaybackManager extends Emitter<PlaybackEvents> {
     const graphOwnsAudio = this.usingAudioGraph || engine.kind === 'webcodecs';
     if (graphOwnsAudio) {
       audioProcessor.setVolume(this.volume, this.muted);
-      engine.setVolume(1);
-      engine.setMuted(false);
+      // Keep the element in step as well: if the graph is suspended (mobile
+      // autoplay policies, a detached sink) the gain change would not be heard
+      // until the next resume, which is what made volume feel seconds late.
+      engine.setVolume(this.muted ? 0 : this.volume);
+      engine.setMuted(this.muted);
     } else {
       engine.setVolume(this.volume);
       engine.setMuted(this.muted);

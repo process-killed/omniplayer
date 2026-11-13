@@ -462,14 +462,16 @@ class PlayerPage implements PageInstance, PlayerApi {
     this.speedButton.addEventListener('click', () => this.openSpeedMenu());
     this.qualityButton.addEventListener('click', () => this.openQualityMenu());
 
-    this.volumeInput.addEventListener('input', () => {
+    const onVolumeInput = () => {
       const value = Number(this.volumeInput.value) / 100;
       this.pm.setMuted(false);
       this.pm.setVolume(value);
       this.lastVolume = value;
       this.persistVolume(value);
       this.updateVolumeUi();
-    });
+    };
+    this.volumeInput.addEventListener('input', onVolumeInput);
+    this.volumeInput.addEventListener('change', onVolumeInput);
 
     // Timeline interactions
     this.tl.addEventListener('pointerdown', (event) => {
@@ -1026,13 +1028,20 @@ class PlayerPage implements PageInstance, PlayerApi {
     for (const [iconName, text, handler] of entries) {
       const item = el('button', { class: 'menu-item', type: 'button' });
       item.innerHTML = `${icon(iconName, 16)}<span>${esc(text)}</span>`;
-      item.addEventListener('click', handler);
+      item.addEventListener('click', () => {
+        // Close the menu first: it used to stay open behind panels.
+        this.closeMenus();
+        handler();
+      });
       menu.append(item);
     }
     menu.append(el('div', { class: 'menu-sep' }));
     const fullscreen = el('button', { class: 'menu-item', type: 'button' });
     fullscreen.innerHTML = `${icon('maximize', 16)}<span>Toggle fullscreen</span>`;
-    fullscreen.addEventListener('click', () => void this.toggleFullscreen());
+    fullscreen.addEventListener('click', () => {
+      this.closeMenus();
+      void this.toggleFullscreen();
+    });
     menu.append(fullscreen);
     this.showMenu(this.moreButton, menu);
   }
@@ -1080,14 +1089,26 @@ class PlayerPage implements PageInstance, PlayerApi {
       item.innerHTML = `${icon(action.iconName, 21)}<span>${esc(action.label)}</span>`;
       item.addEventListener('click', () => {
         this.closeSheet();
+        this.closeSheet();
         action.handler();
       });
       grid.append(item);
     }
 
-    sheet.append(grid);
+    // A visible close control: on small screens there was no way out of the sheet.
+    const close = el('button', { class: 'sheet__close', type: 'button', 'aria-label': 'Close controls' });
+    close.innerHTML = `${icon('x', 18)}<span>Close</span>`;
+    close.addEventListener('click', () => this.closeSheet());
+
+    sheet.append(grid, close);
     this.el.append(scrim, sheet);
     scrim.addEventListener('click', () => this.closeSheet());
+  }
+
+  /** Close the three-dot menu and any popover it opened. */
+  private closeMenus(): void {
+    closePopover();
+    this.el.querySelectorAll('.p-pop').forEach((node) => node.remove());
   }
 
   private closeSheet(): void {
@@ -1173,7 +1194,7 @@ class PlayerPage implements PageInstance, PlayerApi {
     const input = el('input', { class: 'range', type: 'range', min: '0', max: '100', step: '1', value: this.volumeInput.value });
     const row = el('div', { class: 'p-pop__row' }, [el('span', { html: icon('volume', 16) }), input]);
     const mute = el('button', { class: 'p-opt', type: 'button', text: this.mutedValue ? 'Unmute' : 'Mute', style: { width: '100%', marginTop: '10px' } });
-    input.addEventListener('input', () => {
+    const applyVolume = () => {
       const percent = Number(input.value);
       this.mutedValue = percent === 0;
       this.pm.setMuted(false);
@@ -1184,7 +1205,11 @@ class PlayerPage implements PageInstance, PlayerApi {
       this.updateVolumeUi();
       value.textContent = `${percent}%`;
       mute.textContent = this.mutedValue ? 'Unmute' : 'Mute';
-    });
+    };
+    // `input` covers desktop dragging; `change` covers touch browsers that only
+    // report the final value on release.
+    input.addEventListener('input', applyVolume);
+    input.addEventListener('change', applyVolume);
     mute.addEventListener('click', () => {
       this.toggleMute();
       input.value = String(Math.round((this.mutedValue ? 0 : this.lastVolume) * 100));
@@ -2485,6 +2510,14 @@ class PlayerPage implements PageInstance, PlayerApi {
       }
     }
 
+    // A close control: once playback failed there was no way back to the app.
+    const closeButton = el('button', { class: 'error-card__close', type: 'button', 'aria-label': 'Close error and go back' });
+    closeButton.innerHTML = icon('x', 18);
+    closeButton.addEventListener('click', () => {
+      this.hideError();
+      this.exit();
+    });
+
     const card = el('div', { class: 'error-card' });
     card.innerHTML = `
       <div class="error-card__icon">${icon('alert', 22)}</div>
@@ -2500,7 +2533,7 @@ class PlayerPage implements PageInstance, PlayerApi {
       diagnosticsButton,
       copyButton,
     ]);
-    card.append(actions);
+    card.append(actions, closeButton);
     this.errorBox.innerHTML = '';
     this.errorBox.append(card);
     this.errorBox.classList.add('is-visible');
