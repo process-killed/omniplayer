@@ -302,6 +302,70 @@ function icon(name, size = 22) {
 
 const SKIP_CACHE = new Map();
 
+/* --------------------------------------------------------------------------
+ * 04b. WebTor embed SDK
+ * --------------------------------------------------------------------------
+ * The SDK drains whatever sits in `window.webtor` when it loads and replaces
+ * that global with its own queue object, so configuration is pushed *before*
+ * the script is ensured. One promise per page, so a second player mount can
+ * never inject the script twice.
+ * ------------------------------------------------------------------------ */
+
+const WEBTOR_SDK_URL =
+  'https://cdn.jsdelivr.net/npm/@webtor/embed-sdk-js/dist/index.min.js';
+
+let webtorSdkPromise = null;
+
+function webtorSdkReady() {
+  return Boolean(
+    window.webtor &&
+      typeof window.webtor.push === 'function' &&
+      !Array.isArray(window.webtor)
+  );
+}
+
+function ensureWebtorSdk(timeoutMs = 12000) {
+  if (webtorSdkReady()) return Promise.resolve(true);
+  if (webtorSdkPromise) return webtorSdkPromise;
+
+  webtorSdkPromise = new Promise((resolve) => {
+    let settled = false;
+    let poll = 0;
+
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearInterval(poll);
+      resolve(ok);
+    };
+
+    const timer = setTimeout(() => finish(false), timeoutMs);
+
+    poll = setInterval(() => {
+      if (webtorSdkReady()) finish(true);
+    }, 150);
+
+    const existing = document.querySelector('script[src*="@webtor/embed-sdk-js"]');
+
+    if (existing) {
+      // Already in the document (index.html loads it async): wait for the poll.
+      existing.addEventListener('error', () => finish(false), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = WEBTOR_SDK_URL;
+    script.async = true;
+    script.charset = 'utf-8';
+    script.dataset.webtorSdk = 'true';
+    script.addEventListener('error', () => finish(false), { once: true });
+    document.head.appendChild(script);
+  });
+
+  return webtorSdkPromise;
+}
+
 export class VideoPlayerEngine {
   constructor() {
     this.root = null;
@@ -367,6 +431,8 @@ export class VideoPlayerEngine {
     this.torrentId = null;
     this.torrentMagnet = '';
     this.torrentTimer = null;
+    this.torrentObserver = null;
+    this.torrentReady = false;
     this.fullscreen = false;
     this.mini = false;
     this.theater = false;
@@ -923,22 +989,21 @@ export class VideoPlayerEngine {
   /* -------------------------------------------------------------- torrent */
 
   /**
-   * Torrent playback runs inside WebTor's own player.
+   * Torrent playback runs inside WebTor's own player, driven through their
+   * embed SDK.
    *
-   * Two things matter here:
+   * Order matters, and it is the order their docs describe:
+   *   1. create the mount element,
+   *   2. queue the configuration on `window.webtor`,
+   *   3. make sure the SDK script is loaded (it drains the queue on load),
+   *   4. wait until the SDK has actually created its iframe before we call
+   *      the stream "ready".
    *
-   * 1. WebTor's app is a session-based service. It writes cookies and calls
-   *    /auth/session/refresh. A sandboxed iframe gets its storage blocked in
-   *    several browsers, which makes that call fail with 401 and drops the
-   *    viewer on the marketing page. Their own SDK ships an unsandboxed
-   *    iframe, so we do the same.
-   *
-   * 2. The magnet is delivered the way their SDK does it: an `?id=` session
-   *    parameter plus an `init` message. If no handshake arrives we reload
-   *    once with the magnet in the URL (their direct-link form), and only
-   *    then offer a manual way out.
+   * The frame is intentionally not sandboxed: WebTor is a session-based cloud
+   * service, and a sandboxed frame has its storage refused, which is what
+   * produced the /auth/session/refresh 401 and the marketing page.
    */
-  mountTorrent(magnet, stream = {}) {
+  async mountTorrent(magnet, stream = {}) {
     const host = $('#torrentPlayerContainer');
     if (!host) return;
 
@@ -959,40 +1024,26 @@ export class VideoPlayerEngine {
     host.classList.add('afp-torrent');
     host.replaceChildren();
 
-    const id =
-      window.crypto?.randomUUID?.() ||
-      `afp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const session = this.session;
+    const mountId = `afp-torrent-${Date.now().toString(36)}-${Math.random()
+      .toString(16)
+      .slice(2, 8)}`;
 
-    const encoded = encodeURIComponent(magnet);
-
-    this.torrentId = id;
-    this.torrentMagnet = magnet;
-    this.torrentHandshake = false;
-    this.torrentLoaded = false;
-
-    const frame = document.createElement('iframe');
-    frame.className = 'afp-torrent__frame';
-    frame.title = 'Torrent player';
-    frame.setAttribute(
-      'allow',
-      'autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write; display-capture'
-    );
-    frame.setAttribute('webkitallowfullscreen', '');
-    frame.setAttribute('mozallowfullscreen', '');
-    frame.setAttribute('scrolling', 'no');
-    frame.setAttribute('referrerpolicy', 'origin');
+    const container = document.createElement('div');
+    container.id = mountId;
+    container.className = 'afp-torrent__mount';
 
     const status = document.createElement('div');
     status.className = 'afp-torrent__status';
     status.innerHTML = `
       <span class="afp-torrent__spin"></span>
       <b>Connecting to peers…</b>
-      <em>Streaming the torrent inside your browser</em>
+      <em>Starting the torrent player</em>
     `;
 
     const pill = document.createElement('a');
     pill.className = 'afp-torrent__pill';
-    pill.href = `https://webtor.io/show?magnet=${encoded}&mode=default`;
+    pill.href = `https://webtor.io/show?magnet=${encodeURIComponent(magnet)}&mode=default`;
     pill.target = '_blank';
     pill.rel = 'noopener noreferrer';
     pill.textContent = 'Open on WebTor';
@@ -1003,97 +1054,183 @@ export class VideoPlayerEngine {
     fallback.innerHTML = `
       <span>Torrent player not starting?</span>
       <button type="button" data-retry>Reload</button>
-      <a href="https://webtor.io/show?magnet=${encoded}&mode=default"
+      <a href="https://webtor.io/show?magnet=${encodeURIComponent(magnet)}&mode=default"
          target="_blank" rel="noopener noreferrer">Open on WebTor</a>
     `;
 
-    host.append(frame, status, pill, fallback);
+    host.append(container, status, pill, fallback);
 
-    // Exactly what their SDK sends, with the same defaults.
-    const config = {
-      id,
-      magnet,
-      width: '100%',
-      height: '100%',
-      mode: 'video',
-      baseUrl: 'https://webtor.io',
-      header: true,
-      controls: true,
-      title: safeLabel(stream.title || this.meta.animeTitle || '', 80),
-      poster: this.meta.poster || null,
-      subtitles: [],
-      lang: 'en',
-      version: '0.2.19',
-      referer: location.href,
-      features: {}
-    };
-
-    this.onTorrentMessage = (event) => {
-      const data = event.data;
-      if (!data || typeof data !== 'object' || data.id !== id) return;
-
-      this.torrentHandshake = true;
-      this.torrentLoaded = true;
-      status.classList.add('is-hidden');
-      fallback.hidden = true;
-      clearTimeout(this.torrentTimer);
-      this.torrentTimer = null;
-
-      if (data.name === 'init') {
-        try {
-          frame.contentWindow?.postMessage({ id, name: 'init', data: config }, '*');
-        } catch {
-          /* frame not reachable yet; their retry ping will come again */
-        }
-      }
-    };
-
-    window.addEventListener('message', this.onTorrentMessage);
-
-    frame.addEventListener('load', () => {
-      this.torrentLoaded = true;
-    });
+    this.torrentContainer = container;
+    this.torrentStatus = status;
+    this.torrentFallback = fallback;
+    this.torrentReady = false;
+    this.torrentMagnet = magnet;
 
     fallback.querySelector('[data-retry]')?.addEventListener('click', () => {
       this.mountTorrent(magnet, stream);
     });
 
-    frame.src = `https://webtor.io/show?id=${encodeURIComponent(id)}&mode=video`;
+    /* ---- 1. observe first: a loaded SDK builds its iframe synchronously ---- */
 
-    // Ladder: handshake → magnet URL → manual bar. Never a blank screen.
-    this.torrentTimer = setTimeout(() => {
-      if (this.torrentHandshake) return;
+    try {
+      this.torrentObserver?.disconnect();
+      this.torrentObserver = new MutationObserver(() => {
+        if (session !== this.session) return;
+        const frame = container.querySelector('iframe');
+        if (frame && !this.torrentReady) this.markTorrentReady(frame);
+      });
+      this.torrentObserver.observe(container, { childList: true, subtree: true });
+    } catch {
+      /* observer unsupported */
+    }
 
+    /* ---- 2. queue the configuration before the SDK is ensured ---- */
+
+    const config = {
+      id: mountId,
+      magnet,
+      width: '100%',
+      height: '100%',
+      mode: 'video',
+      header: false,
+      controls: true,
+      title: safeLabel(stream.title || this.meta.animeTitle || '', 80),
+      poster: this.meta.poster || null,
+      subtitles: [],
+      lang: 'en',
+      referer: location.href,
+      features: {},
+      on: (event) => {
+        if (session !== this.session) return;
+        this.onWebtorEvent(event);
+      }
+    };
+
+    window.webtor = window.webtor || [];
+
+    try {
+      window.webtor.push(config);
+    } catch (error) {
+      console.debug('[Player] webtor queue rejected the config', error);
+    }
+
+    // If the SDK was already loaded, push() has just built the frame inline.
+    const earlyFrame = container.querySelector('iframe');
+    if (earlyFrame && !this.torrentReady) this.markTorrentReady(earlyFrame);
+
+    /* ---- 3. load the SDK, then give it time to build the player ---- */
+
+    const sdkLoaded = await ensureWebtorSdk();
+
+    if (session !== this.session) return;
+
+    if (!sdkLoaded) {
+      // The SDK never arrived (blocked CDN, offline). Fall back to a plain
+      // embed URL rather than leaving the viewer on a spinner.
+      this.loadTorrentUrl(magnet);
+      return;
+    }
+
+    // The SDK drains its queue on load, but a push that raced the script can
+    // be lost; a second push is harmless because it is idempotent per mount.
+    if (!container.querySelector('iframe')) {
+      try {
+        window.webtor.push(config);
+      } catch {
+        /* already queued */
+      }
+    }
+
+    if (!this.torrentReady) {
       this.torrentTimer = setTimeout(() => {
-        if (this.torrentHandshake) return;
-        status.classList.add('is-hidden');
-        fallback.hidden = false;
-      }, 12000);
+        if (session !== this.session || this.torrentReady) return;
+        this.loadTorrentUrl(magnet);
+      }, 9000);
+    }
+  }
 
-      this.torrentFrame = frame;
-      this.torrentStatus = status;
-      this.torrentFallback = fallback;
-      frame.src = `https://webtor.io/show?magnet=${encoded}&mode=video&pwd=%2F`;
-    }, 9000);
+  /** The SDK created its iframe: the player is up. */
+  markTorrentReady(frame) {
+    this.torrentReady = true;
+    clearTimeout(this.torrentTimer);
+    this.torrentTimer = null;
+    this.torrentStatus?.classList.add('is-hidden');
+    if (this.torrentFallback) this.torrentFallback.hidden = true;
 
-    this.torrentFrame = frame;
-    this.torrentStatus = status;
-    this.torrentFallback = fallback;
+    frame.addEventListener('load', () => {
+      this.torrentStatus?.classList.add('is-hidden');
+    });
+  }
+
+  /** Events forwarded by the SDK's `on` callback. */
+  onWebtorEvent(event) {
+    const name = String(event?.name || '');
+
+    if (/error|fail|denied/i.test(name)) {
+      this.torrentStatus?.classList.add('is-hidden');
+      if (this.torrentFallback) this.torrentFallback.hidden = false;
+      return;
+    }
+
+    if (event && typeof event === 'object') {
+      this.torrentStatus?.classList.add('is-hidden');
+    }
+  }
+
+  /**
+   * Last resort: load the embed URL directly with the magnet in the query.
+   * This is WebTor's documented direct-link form and needs no handshake.
+   */
+  loadTorrentUrl(magnet) {
+    if (!this.torrentContainer) return;
+
+    clearTimeout(this.torrentTimer);
+
+    const session = this.session;
+    const encoded = encodeURIComponent(magnet);
+
+    this.torrentContainer.replaceChildren();
+
+    const frame = document.createElement('iframe');
+    frame.className = 'afp-torrent__frame';
+    frame.title = 'Torrent player';
+    frame.setAttribute(
+      'allow',
+      'autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write'
+    );
+    frame.setAttribute('webkitallowfullscreen', '');
+    frame.setAttribute('scrolling', 'no');
+    frame.setAttribute('referrerpolicy', 'origin');
+
+    frame.addEventListener('load', () => {
+      if (session === this.session) this.torrentStatus?.classList.add('is-hidden');
+    });
+
+    this.torrentContainer.appendChild(frame);
+    frame.src = `https://webtor.io/show?magnet=${encoded}&mode=video&pwd=%2F`;
+
+    this.torrentTimer = setTimeout(() => {
+      if (session !== this.session) return;
+      this.torrentStatus?.classList.add('is-hidden');
+      if (this.torrentFallback) this.torrentFallback.hidden = false;
+    }, 12000);
   }
 
   clearTorrent() {
     clearTimeout(this.torrentTimer);
     this.torrentTimer = null;
-    this.torrentFrame = null;
+
+    try {
+      this.torrentObserver?.disconnect();
+    } catch {
+      /* noop */
+    }
+    this.torrentObserver = null;
+
+    this.torrentContainer = null;
     this.torrentStatus = null;
     this.torrentFallback = null;
-    this.torrentLoaded = false;
-    this.torrentHandshake = false;
-
-    if (this.onTorrentMessage) {
-      window.removeEventListener('message', this.onTorrentMessage);
-      this.onTorrentMessage = null;
-    }
+    this.torrentReady = false;
 
     const host = $('#torrentPlayerContainer');
     if (host) {
@@ -1102,6 +1239,7 @@ export class VideoPlayerEngine {
     }
   }
 
+  /* --------------------------------------------------------------- source */
   /* --------------------------------------------------------------- source */
   /* --------------------------------------------------------------- source */
   /* --------------------------------------------------------------- source */

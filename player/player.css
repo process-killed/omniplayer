@@ -1087,7 +1087,8 @@ body.afp-theater .player-stage {
   display: none !important;
 }
 
-.afp-torrent__frame {
+.afp-torrent__frame,
+.afp-torrent__mount iframe {
   position: absolute;
   inset: 0;
   display: block;
@@ -1095,6 +1096,12 @@ body.afp-theater .player-stage {
   height: 100%;
   border: 0;
   background: #000;
+}
+
+.afp-torrent__mount {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
 .afp-torrent__status {
