@@ -128,7 +128,7 @@ export class DanmakuEngine {
   private settings: DanmakuSettings = { ...DEFAULT_DANMAKU_SETTINGS };
   private lastTime = -1;
   /** Hard cap so a dense comment track cannot exhaust memory. */
-  private readonly maxActive = 120;
+  private maxActive = 120;
   private spawnedThisSecond = 0;
   private spawnWindow = 0;
   private perSecondCap = 0;
@@ -171,6 +171,11 @@ export class DanmakuEngine {
   /** Adaptive rendering frequency (0 = no cap). */
   setRateCap(perSecond: number): void {
     this.perSecondCap = Math.max(0, perSecond);
+  }
+
+  /** Hard cap on live comment nodes — a phone should never hold 120. */
+  setActiveLimit(limit: number): void {
+    this.maxActive = Math.max(8, Math.min(120, limit));
   }
 
   setSettings(next: Partial<DanmakuSettings>): void {

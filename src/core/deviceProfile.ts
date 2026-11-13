@@ -30,10 +30,12 @@ export interface DeviceBudgets {
 
 export const PROFILES: Record<ProfileId, DeviceBudgets> = {
   low: {
-    maxDecodeHeight: 720,
-    frameQueue: 3,
+    // 480p keeps software decoding inside a low-end phone's budget; the native
+    // engine is unaffected because it never renders to a canvas.
+    maxDecodeHeight: 480,
+    frameQueue: 2,
     audioAhead: 0.8,
-    cacheMb: 24,
+    cacheMb: 16,
     effects: false,
     danmakuPerSecond: 4,
     thumbnails: false,

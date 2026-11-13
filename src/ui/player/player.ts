@@ -665,22 +665,30 @@ class PlayerPage implements PageInstance, PlayerApi {
   /* ------------------------------------------------------------------ loop */
 
   private startLoop(): void {
+    let frame = 0;
     const tick = () => {
       if (this.destroyed) return;
       this.rafId = requestAnimationFrame(tick);
+      frame += 1;
       const duration = this.pm.duration;
       const current = this.pm.currentTime;
+      // Weak devices: run the cosmetic half of the loop at half rate. Playback
+      // itself is unaffected — it lives in the engine, not here.
+      const lightFrame = this.throttledLoop && frame % 2 === 1;
+
       this.subtitles.tick(current);
-      this.danmaku.tick(current);
-      this.watchForStall(current);
-      this.samplePressure(current);
+      if (!lightFrame) {
+        this.danmaku.tick(current);
+        this.watchForStall(current);
+        this.samplePressure(current);
+      }
       const embed = this.isEmbed ? this.options.embed : null;
       if (embed?.end && current >= embed.end) {
         this.pm.pause();
         this.pm.seek(embed.end);
         this.handleEnded();
       }
-      this.updateTimeline(current, duration);
+      if (!lightFrame) this.updateTimeline(current, duration);
       const now = performance.now();
       if (now - this.lastUiUpdate > 180) {
         this.lastUiUpdate = now;
@@ -1731,12 +1739,17 @@ class PlayerPage implements PageInstance, PlayerApi {
   private bridgeHandler: ((event: MessageEvent) => void) | null = null;
   private lastProgress = { at: 0, time: -1, recoveries: 0 };
   private governor!: ResourceGovernor;
+  /** True on the low/TV profiles: half-rate UI work, capped danmaku. */
+  private throttledLoop = false;
   private governorAt = 0;
 
   private applyDanmakuSettings(): void {
     const settings = this.store.settings;
-    const danmakuBudget = budgetsFor(this.store.settings.deviceProfile === 'auto' ? deviceReport().profile : this.store.settings.deviceProfile);
+    const profileId = this.store.settings.deviceProfile === 'auto' ? deviceReport().profile : this.store.settings.deviceProfile;
+    const danmakuBudget = budgetsFor(profileId);
+    this.throttledLoop = profileId === 'low';
     this.danmaku.setRateCap(danmakuBudget.danmakuPerSecond);
+    this.danmaku.setActiveLimit(profileId === 'low' ? 40 : profileId === 'balanced' ? 80 : 120);
     this.danmaku.setSettings({
       enabled: settings.danmakuEnabled,
       opacity: settings.danmakuOpacity,
@@ -2027,6 +2040,10 @@ class PlayerPage implements PageInstance, PlayerApi {
   private async generateStoryboard(): Promise<void> {
     const media = this.media;
     if (!media || !this.store.settings.thumbnailPreviews) return;
+    // The low-memory profile turns timeline thumbnails off: decoding 12 frames
+    // competes with playback on a weak device.
+    const profileId = this.store.settings.deviceProfile === 'auto' ? deviceReport().profile : this.store.settings.deviceProfile;
+    if (!budgetsFor(profileId).thumbnails) return;
     const token = ++this.storyboardToken;
     const duration = this.pm.duration;
     if (!duration || !Number.isFinite(duration) || duration < 10) return;

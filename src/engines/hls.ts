@@ -163,7 +163,7 @@ export class HlsEngine extends BaseEngine {
       enableWorker: true,
       lowLatencyMode: this.settings.lowLatencyLive,
       backBufferLength: this.settings.lowMemoryMode === 'on' ? 30 : 90,
-      maxBufferLength: Math.min(this.settings.bufferAhead, this.budget.cacheMb > 48 ? 60 : 25),
+      maxBufferLength: Math.min(this.settings.bufferAhead, this.budget.cacheMb > 48 ? 60 : this.budget.cacheMb > 24 ? 25 : 12),
       maxMaxBufferLength: Math.max(60, this.settings.bufferAhead * 2),
       manifestLoadingTimeOut: this.settings.requestTimeout * 1000,
       manifestLoadingMaxRetry: this.settings.retryCount,
