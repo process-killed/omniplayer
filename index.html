@@ -1,29 +1,714 @@
-<!doctype html>
-<html lang="en" data-theme="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
-    <meta name="theme-color" content="#0a0b0f" />
-    <meta name="color-scheme" content="dark light" />
-    <meta name="description" content="OmniPlay — a private, universal browser media player. Play local files, direct links, HLS and DASH with multi-audio, styled ASS subtitles and a full audio engine. Everything stays on your device." />
-    <title>OmniPlay — Universal Media Player</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="OmniPlay" />
-    <meta name="application-name" content="OmniPlay" />
-    <meta name="format-detection" content="telephone=no" />
-    <!-- No third-party requests: fonts resolve to the system stack. -->
-    <script type="module" crossorigin src="/assets/index-BNdtdhct.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/style-CrLYjMvq.css">
-  </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to content</a>
-    <div id="app" class="app"></div>
-    <noscript>OmniPlay needs JavaScript enabled — all playback happens locally in your browser.</noscript>
-  </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#05070c">
+  <meta name="description" content="AniFrame — a fast, simple embed player for anime streams.">
+  <title>AniFrame — Watch anime</title>
+  
+  <!-- Modern Vector Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2300e5ff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'/%3E%3C/svg%3E">
+  
+  <!-- High-Speed Preconnects & Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Core Video Streaming Engines -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/artplayer@5.4.0/dist/artplayer.js"></script>
+
+  <!-- 1. Pre-Turnstile Non-Blocking Token Broker -->
+  <script>
+    window.__turnstileToken = null;
+    window.__turnstileHandlers = [];
+    window.onTurnstileSuccess = function(token) {
+      window.__turnstileToken = token;
+      while (window.__turnstileHandlers.length > 0) {
+        const handler = window.__turnstileHandlers.shift();
+        try { handler(token); } catch (e) { console.error('[Turnstile/HandlerError]', e); }
+      }
+    };
+  </script>
+
+  <!-- 2. Cloudflare Turnstile Verification API -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+
+  <!-- App Shell & Drawers Stylesheet -->
+  <link rel="stylesheet" href="/assets/style.css">
+
+  <!-- Dedicated Video Player Stylesheet -->
+  <link rel="stylesheet" href="/player/player.css">
+
+  <!-- Dedicated Comments Engine Stylesheet -->
+  <link rel="stylesheet" href="/comments/comments.css">
+
+  <!-- Dedicated Download Module Stylesheet -->
+  <link rel="stylesheet" href="/download/download.css">
+
+  <!-- Nexus design layer (must load last: it re-skins the shell and player) -->
+  <link rel="stylesheet" href="/assets/nexus/nexus.css">
+
+  <!-- Cinematic Splash & Front Details Styling -->
+  <style>
+    .player-splash-screen {
+      position: absolute;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: flex-end;
+      padding: clamp(20px, 5vw, 60px);
+      overflow: hidden;
+      background: #05070c;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    .player-splash-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .splash-backdrop-mesh {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center 25%;
+      filter: saturate(1.15) brightness(0.75);
+      transform: scale(1.02);
+      transition: transform 6s ease-out;
+      z-index: 1;
+    }
+    .player-splash-screen:hover .splash-backdrop-mesh {
+      transform: scale(1.06);
+    }
+    .splash-vignette-layered {
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(circle at 80% 20%, rgba(0, 229, 255, 0.12) 0%, transparent 50%),
+        linear-gradient(to top, #05070c 5%, rgba(5, 7, 12, 0.85) 35%, rgba(5, 7, 12, 0.3) 70%, rgba(5, 7, 12, 0.6) 100%),
+        linear-gradient(to right, rgba(5, 7, 12, 0.95) 0%, rgba(5, 7, 12, 0.5) 60%, transparent 100%);
+      z-index: 2;
+    }
+    .splash-glass-card {
+      position: relative;
+      z-index: 10;
+      max-width: 860px;
+      display: flex;
+      gap: clamp(16px, 3vw, 32px);
+      align-items: flex-start;
+      padding: clamp(16px, 3vw, 28px);
+      background: rgba(13, 20, 36, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 24px;
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 40px rgba(0, 229, 255, 0.08);
+    }
+    .splash-poster-frame {
+      flex-shrink: 0;
+      width: clamp(100px, 16vw, 150px);
+      aspect-ratio: 2 / 3;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1.5px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 229, 255, 0.15);
+      background: #090e1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .splash-poster-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+    .splash-content-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .splash-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .splash-title-text {
+      font-size: clamp(20px, 3.2vw, 32px);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin: 0;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    }
+    .splash-score-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      background: rgba(0, 229, 255, 0.14);
+      border: 1px solid rgba(0, 229, 255, 0.35);
+      border-radius: 8px;
+      color: #00e5ff;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 800;
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
+    }
+    .splash-metadata-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    .splash-metadata-strip span.highlight {
+      color: #f8fafc;
+      font-weight: 700;
+    }
+    .splash-genres-list {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 2px 0;
+    }
+    .splash-genres-list .genre-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      color: #cbd5e1;
+    }
+    .splash-synopsis-preview {
+      font-size: 13px;
+      line-height: 1.55;
+      color: #94a3b8;
+      margin: 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .splash-cta-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .splash-play-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 24px;
+      background: linear-gradient(135deg, #00e5ff 0%, #00b4d8 100%);
+      color: #05070c;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 229, 255, 0.4);
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    .splash-play-primary:hover:not(:disabled) {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 6px 26px rgba(0, 229, 255, 0.6);
+    }
+    .splash-play-primary:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+    .splash-play-primary:disabled {
+      opacity: 0.8;
+      cursor: wait;
+    }
+    .splash-status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #64748b;
+      font-family: var(--font-mono);
+    }
+    .splash-status-indicator .indicator-light {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #00e5ff;
+      box-shadow: 0 0 10px #00e5ff;
+      animation: pulseLight 1.8s infinite;
+    }
+    @keyframes pulseLight {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* HARD KILL: Permanently suppress old fullscreen circular radar loading animation */
+    #playerLoading,
+    .overlay-screen,
+    .loading-spinner,
+    .splash-spinner,
+    #splashSpinner {
+      display: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      width: 0 !important;
+      height: 0 !important;
+      border: none !important;
+    }
+
+    @media (max-width: 640px) {
+      .player-splash-screen {
+        padding: 16px;
+        align-items: center;
+      }
+      .splash-glass-card {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 18px;
+      }
+      .splash-poster-frame {
+        width: 90px;
+      }
+      .splash-title-row, .splash-metadata-strip, .splash-genres-list, .splash-cta-row {
+        justify-content: center;
+      }
+      .splash-synopsis-preview {
+        -webkit-line-clamp: 2;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body class="embed-mode">
+  <!-- Quiet background wash -->
+  <div class="nx-aurora" aria-hidden="true"></div>
+  <div class="nx-grid" aria-hidden="true"></div>
+
+  <!-- Nexus boot curtain (removed by assets/nexus/boot.js) -->
+  <div id="nxBoot" aria-hidden="true">
+    <div class="nx-boot__inner">
+      <div class="nx-boot__mark">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </div>
+      <div class="nx-boot__word">AniFrame</div>
+      <div class="nx-boot__bar"><span></span></div>
+    </div>
+  </div>
+
+  <!-- Dynamic Immersive Ambient Glow Backdrop -->
+  <div class="hero-backdrop" id="heroBackdrop"></div>
+
+  <!-- Hidden Turnstile Challenge Frame -->
+  <div id="turnstile-container" style="position: fixed; bottom: 0; right: 0; z-index: -1; pointer-events: none; opacity: 0.01;">
+    <div class="cf-turnstile" 
+         data-sitekey="0x4AAAAAAFbXg6w0p84E0IsX" 
+         data-callback="onTurnstileSuccess"
+         data-appearance="interaction-only">
+    </div>
+  </div>
+
+  <!-- Primary Embed Viewport Stage (Strict 100vw x 100vh) -->
+  <div class="embed-player-container" id="embedContainer">
+    
+    <!-- Floating HUD Overlay Header (Auto-Hides on Idle) -->
+    <header class="player-topbar" id="playerTopBar">
+      <div class="topbar-left">
+        <span class="embed-badge" title="AniFrame Next-Gen Embed">
+          <svg class="ui-icon bolt-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          ANI<span class="cyan">FRAME</span>
+        </span>
+        <div class="media-title-group">
+          <span class="media-title" id="mediaTitle">Loading...</span>
+          <span class="ep-badge" id="epBadge">EP 1</span>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <!-- Unified Media Hub Trigger (Consolidates Stepper + Info + Episodes Drawer) -->
+        <button id="btnToggleMediaHub" class="pill-btn media-hub-btn" title="Episodes & Anime Details">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+          <span id="hubEpLabel">EP 1 • Details</span>
+          <svg class="ui-icon arrow" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        <!-- Consolidated Server & Audio Hub Trigger (Servers + SUB/DUB + Torrent Language) -->
+        <button id="btnToggleServerHub" class="pill-btn server-hub-btn" title="Streaming Server & Audio Settings">
+          <span class="dot live"></span>
+          <span id="serverHubSummary">Server 2 (DUB)</span>
+          <svg class="ui-icon arrow" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        <!-- Community Comments Topbar Drawer Toggle -->
+        <button id="btnToggleComments" class="pill-btn community-btn" title="Episode Discussion & Community Comments">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          <span>Comments</span>
+        </button>
+
+        <!-- Stream Quality & Sources Drawer Button -->
+        <button id="btnToggleSources" class="pill-btn primary" title="Choose Active Stream Source">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+            <line x1="7" y1="2" x2="7" y2="22"/>
+            <line x1="17" y1="2" x2="17" y2="22"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <line x1="2" y1="7" x2="7" y2="7"/>
+            <line x1="2" y1="17" x2="7" y2="17"/>
+            <line x1="17" y1="17" x2="22" y2="17"/>
+            <line x1="17" y1="7" x2="22" y2="7"/>
+          </svg>
+          <span>Sources</span>
+          <span class="source-count-badge" id="sourceCountBadge">0</span>
+        </button>
+
+        <!-- Desktop/Laptop Encrypted Download Action Button -->
+        <button id="btnDownloadStream" class="pill-btn download-pill-btn" title="Download Current Episode">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Download</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Fullscreen Video Viewports -->
+    <div class="player-stage">
+      <!-- 1. Native Direct MP4 & HLS Adaptive Player Stage -->
+      <div id="artplayerContainer" class="artplayer-app"></div>
+
+      <!-- 2. Pure WebTorrent SDK Video Player Container -->
+      <div id="torrentPlayerContainer" class="torrent-frame" style="display: none; width: 100%; height: 100%;"></div>
+
+      <!-- 3. Third-Party Isolated Iframe Sandbox Engine -->
+      <iframe id="torrentIframe" 
+              class="torrent-frame" 
+              allowfullscreen 
+              allow="autoplay; fullscreen; encrypted-media; picture-in-picture">
+      </iframe>
+
+      <!-- Ergonomic Mobile Bottom Floating Action Bar (Thumb Zone) -->
+      <div class="mobile-touch-actions" id="mobileTouchActions">
+        <button class="mobile-action-pill" id="btnMobileComments" title="View & Post Comments">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          <span>Comments</span>
+          <span class="mobile-indicator-dot"></span>
+        </button>
+
+        <!-- Mobile Touch Action: High-Speed Encrypted Download Trigger -->
+        <button class="mobile-action-pill btn-download-mobile" id="btnMobileDownload" title="Download Episode Video">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Download</span>
+        </button>
+      </div>
+
+      <!-- CINEMATIC ANILIST METADATA & POSTER FRONT SPLASH (Full AniList GraphQL Integration) -->
+      <div id="playerSplash" class="player-splash-screen">
+        <div class="splash-backdrop-mesh" id="splashBackdrop"></div>
+        <div class="splash-vignette-layered"></div>
+        
+        <div class="splash-glass-card">
+          <!-- Poster Showcase -->
+          <div class="splash-poster-frame">
+            <img id="splashPosterImg" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>" alt="Anime Poster">
+          </div>
+
+          <!-- Rich Details & Playback Trigger Body -->
+          <div class="splash-content-body">
+            <div class="splash-title-row">
+              <h1 id="splashTitle" class="splash-title-text">Loading Anime...</h1>
+              <span id="splashScore" class="splash-score-badge" style="display: none;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                <span id="splashScoreVal">--%</span>
+              </span>
+            </div>
+
+            <!-- Dynamic Accurate Metadata (Year, Format, Episode Total, Status) -->
+            <div class="splash-metadata-strip" id="splashMetaStrip">
+              <span id="splashEpIndicator" class="highlight">EP 1</span>
+              <span>•</span>
+              <span id="splashFormat">TV Series</span>
+              <span>•</span>
+              <span id="splashYear">2026</span>
+              <span>•</span>
+              <span id="splashTotalEp">-- Episodes</span>
+            </div>
+
+            <!-- AniList Dynamic Genres -->
+            <div class="splash-genres-list" id="splashGenres"></div>
+
+            <!-- Clean Synopsis in Front -->
+            <p id="splashSynopsis" class="splash-synopsis-preview">Fetching anime description, character cast, and episode details from AniList database...</p>
+
+            <!-- Actions Row -->
+            <div class="splash-cta-row">
+              <button id="btnSplashPlay" class="splash-play-primary" title="Start Playback">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                <span>Play Episode</span>
+              </button>
+              
+              <div class="splash-status-indicator">
+                <span class="indicator-light"></span>
+                <span id="splashStatus">Ready to Stream</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error Handling View -->
+      <div id="playerError" class="overlay-screen" style="display: none;">
+        <div class="err-icon-wrapper">
+          <svg class="err-svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <h4 id="errTitle">No Playable Streams Found</h4>
+        <p id="errDesc">Try selecting another audio type or provider.</p>
+        <button id="btnRetry" class="btn-action">
+          <svg class="ui-icon rotate-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+          </svg>
+          Change Server / Provider
+        </button>
+      </div>
+    </div>
+
+    <!-- DRAWER 1: Server Clusters & Addons (Server & Audio Setup) -->
+    <div class="glass-drawer" id="serversDrawer">
+      <div class="drawer-header">
+        <div class="drawer-header-left">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+            <line x1="6" y1="6" x2="6.01" y2="6"/>
+            <line x1="6" y1="18" x2="6.01" y2="18"/>
+          </svg>
+          <h3>SERVER & AUDIO SETUP</h3>
+        </div>
+        <button class="drawer-close" id="btnCloseServers" title="Close Panel">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="drawer-content">
+        <h4 class="sub-heading">SERVER CLUSTERS</h4>
+        <div class="cluster-tabs" id="clusterTabs"></div>
+
+        <div id="drawerKuromiSection" style="display: block; margin-top: 14px;">
+          <h4 class="sub-heading">AUDIO MODALITY</h4>
+          <div class="audio-switch-grid">
+            <button class="audio-btn" id="drawerBtnSub" data-type="sub">
+              <svg class="ui-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <polygon points="12 8 8 12 12 16 16 12 12 8"/>
+              </svg>
+              Japanese (SUB)
+            </button>
+            <button class="audio-btn active" id="drawerBtnDub" data-type="dub">
+              <svg class="ui-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                <line x1="12" y1="19" x2="12" y2="23"/>
+                <line x1="8" y1="23" x2="16" y2="23"/>
+              </svg>
+              Hindi / Eng (DUB)
+            </button>
+          </div>
+
+          <div id="kuromiProviderWrapper">
+            <h4 class="sub-heading" style="margin-top: 14px;">KUROMI SOURCE SCRAPER</h4>
+            <select id="kuromiProviderSelect" class="cyber-select-drawer">
+              <option value="all">Scan All Mirror Networks</option>
+              <option value="anibd">AniBD</option>
+              <option value="anikoto">Anikoto</option>
+              <option value="animegg">Animegg</option>
+              <option value="animeonsen">AnimeOnsen</option>
+              <option value="anineko">Anineko</option>
+              <option value="aniwaves">Aniwaves</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="drawerLangSection" style="display: none; margin-top: 14px;">
+          <h4 class="sub-heading">TORRENTIO AUDIO LANGUAGE</h4>
+          <div class="lang-chips-grid" id="langChipsGrid"></div>
+        </div>
+
+        <h4 class="sub-heading" id="addonsHeader" style="margin-top: 16px;">STREAM PROVIDERS</h4>
+        <div class="addons-grid" id="addonsGrid"></div>
+      </div>
+    </div>
+
+    <!-- DRAWER 2: Available Stream Sources -->
+    <div class="glass-drawer" id="sourcesDrawer">
+      <div class="drawer-header">
+        <div class="drawer-header-left">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <h3>AVAILABLE STREAMS</h3>
+        </div>
+        <button class="drawer-close" id="btnCloseSources" title="Close Panel">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="drawer-content">
+        <div class="torrent-alert" id="torrentAlert" style="display: none;">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          <span>P2P WebTorrent streams strictly limited to &le; 500 MB for zero buffering.</span>
+        </div>
+        <div class="sources-list" id="sourcesList"></div>
+      </div>
+    </div>
+
+    <!-- DRAWER 3: Interactive Episode Selector (Includes Header Stepper) -->
+    <div class="glass-drawer" id="episodesDrawer">
+      <div class="drawer-header">
+        <div class="drawer-header-left" style="display: flex; align-items: center; gap: 8px;">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+          </svg>
+          <h3>EPISODES</h3>
+          <!-- Compact Quick Episode Stepper inside Drawer -->
+          <div class="ep-nav-group" style="margin-left: 6px; padding: 2px 4px;">
+            <button id="btnPrevEp" class="ctrl-btn" title="Previous Episode" style="padding: 2px 5px;">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="19 20 9 12 19 4 19 20"/>
+                <line x1="5" y1="19" x2="5" y2="5"/>
+              </svg>
+            </button>
+            <span class="ep-indicator" id="epIndicator" style="font-size: 11px;">1</span>
+            <button id="btnNextEp" class="ctrl-btn" title="Next Episode" style="padding: 2px 5px;">
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="5 4 15 12 5 20 5 4"/>
+                <line x1="19" y1="5" x2="19" y2="19"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <button class="drawer-close" id="btnCloseEpisodes" title="Close Panel">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="drawer-content">
+        <div class="episodes-grid" id="episodesGridContainer"></div>
+      </div>
+    </div>
+
+    <!-- DRAWER 4: Anime Details & Metadata (Slide-Out) -->
+    <div class="glass-drawer" id="infoDrawer">
+      <div class="drawer-header">
+        <div class="drawer-header-left">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          <h3>ANIME DETAILS</h3>
+        </div>
+        <button class="drawer-close" id="btnCloseInfo" title="Close Panel">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="drawer-content">
+        <div class="info-drawer-card">
+          <img id="metaPoster" class="info-poster" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>" alt="Anime Poster">
+          <div class="info-header-meta">
+            <h2 id="metaTitleHeader" class="info-title">Loading...</h2>
+            <span id="metaScore" class="score-badge">
+              <svg class="ui-icon" viewBox="0 0 24 24" width="11" height="11" fill="currentColor" stroke="none">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+              <span>--</span>
+            </span>
+          </div>
+        </div>
+        <div id="metaGenres" class="genre-tags"></div>
+        <p id="metaSynopsis" class="synopsis-text">Fetching synopsis from AniList GraphQL database...</p>
+      </div>
+    </div>
+
+    <!-- DRAWER 5: Episode Community Discussion & Comments Engine -->
+    <div class="glass-drawer comments-drawer" id="commentsDrawer">
+      <div class="drawer-header">
+        <div class="drawer-header-left">
+          <svg class="ui-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+          <h3>COMMUNITY DISCUSSION</h3>
+        </div>
+        <button class="drawer-close" id="btnCloseComments" title="Close Comments">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="drawer-content comments-drawer-content" id="commentsStageContainer"></div>
+    </div>
+
+  </div>
+
+  <!-- Nexus kernel + feature modules (boots first so the shell can be decorated) -->
+  <script type="module" src="/assets/nexus/boot.js"></script>
+
+  <!-- Client-Side ES Module Orchestrator -->
+  <script type="module" src="/assets/app.js"></script>
+</body>
 </html>

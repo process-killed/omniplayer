@@ -320,8 +320,7 @@ const TORRENT_TRACKERS = Object.freeze([
   'wss://tracker.openwebtorrent.com',
   'wss://tracker.btorrent.xyz',
   'wss://tracker.webtorrent.dev',
-  'wss://tracker.fastcast.nz',
-  'wss://tracker.files.fm:7073/announce'
+  'wss://tracker.fastcast.nz'
 ]);
 
 const BROWSER_VIDEO_RE = /\.(mp4|m4v|webm|ogv|mov)$/i;

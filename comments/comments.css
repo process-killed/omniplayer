@@ -1,0 +1,848 @@
+/* =============================================================================
+   AnimeEdge Modular Comments System (/comments/comments.css - v3.0 Production)
+   Architecture: High-Performance GPU Compositing & Fluid Adaptive Glassmorphism
+   Designed for: Zero Jank 60FPS on 4GB RAM Mobile & Ultra-Wide PC Displays
+   ============================================================================= */
+
+@charset "UTF-8";
+
+/* -----------------------------------------------------------------------------
+   1. Comments Design Tokens & Local Variable Isolation
+   ----------------------------------------------------------------------------- */
+.comments-shell {
+  --cmt-bg-glass: rgba(10, 14, 26, 0.72);
+  --cmt-card-bg: rgba(255, 255, 255, 0.032);
+  --cmt-card-hover: rgba(255, 255, 255, 0.06);
+  --cmt-border-subtle: rgba(255, 255, 255, 0.08);
+  --cmt-border-active: rgba(0, 229, 255, 0.45);
+  
+  --cmt-cyan: #00e5ff;
+  --cmt-cyan-glow: rgba(0, 229, 255, 0.35);
+  --cmt-cyan-dim: rgba(0, 229, 255, 0.12);
+  --cmt-pink: #ff3366;
+  --cmt-pink-glow: rgba(255, 51, 102, 0.35);
+  
+  --cmt-text-primary: #f8fafc;
+  --cmt-text-secondary: #94a3b8;
+  --cmt-text-muted: #53627c;
+  
+  --cmt-font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --cmt-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  --cmt-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --cmt-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 16px;
+  font-family: var(--cmt-font-sans);
+  color: var(--cmt-text-primary);
+  user-select: text;
+  -webkit-user-select: text;
+  contain: layout style paint;
+}
+
+/* -----------------------------------------------------------------------------
+   2. Sticky Sub-Header: Counts & Top/Newest Tabs
+   ----------------------------------------------------------------------------- */
+.comments-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 10px;
+  border-bottom: 1px solid var(--cmt-border-subtle);
+  flex-shrink: 0;
+}
+
+.comments-count-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.count-badge {
+  background: var(--cmt-cyan-dim);
+  color: var(--cmt-cyan);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  font-family: var(--cmt-font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  box-shadow: 0 0 10px var(--cmt-cyan-dim);
+}
+
+.count-text {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.comments-sort-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 3px;
+  border-radius: 9999px;
+  border: 1px solid var(--cmt-border-subtle);
+}
+
+.sort-chip {
+  background: transparent;
+  border: none;
+  color: var(--cmt-text-secondary);
+  font-family: var(--cmt-font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s var(--cmt-smooth);
+}
+
+.sort-chip:hover {
+  color: #ffffff;
+}
+
+.sort-chip.active {
+  background: var(--cmt-cyan);
+  color: #000000;
+  font-weight: 800;
+  box-shadow: 0 0 10px var(--cmt-cyan-glow);
+}
+
+/* -----------------------------------------------------------------------------
+   3. Modern Floating Composer Stage
+   ----------------------------------------------------------------------------- */
+.comment-composer {
+  background: var(--cmt-bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--cmt-border-subtle);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: border-color 0.25s var(--cmt-smooth), box-shadow 0.25s var(--cmt-smooth);
+}
+
+.comment-composer:focus-within {
+  border-color: var(--cmt-border-active);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 16px var(--cmt-cyan-dim);
+}
+
+.composer-user-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.composer-avatar,
+.comment-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #060911;
+  border: 1.5px solid rgba(0, 229, 255, 0.35);
+  object-fit: cover;
+  flex-shrink: 0;
+  transition: transform 0.25s var(--cmt-spring), border-color 0.25s var(--cmt-smooth);
+}
+
+.comment-card:hover .comment-avatar {
+  transform: scale(1.08);
+  border-color: var(--cmt-cyan);
+}
+
+.composer-name-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--cmt-border-subtle);
+  color: #ffffff;
+  font-family: var(--cmt-font-sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 4px 2px;
+  outline: none;
+  transition: border-color 0.2s var(--cmt-smooth);
+}
+
+.composer-name-input:focus {
+  border-color: var(--cmt-cyan);
+}
+
+.composer-textarea-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.composer-textarea,
+.reply-textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--cmt-border-subtle);
+  border-radius: 10px;
+  color: #ffffff;
+  font-family: var(--cmt-font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  outline: none;
+  resize: none;
+  height: 68px;
+  transition: border-color 0.2s var(--cmt-smooth), box-shadow 0.2s var(--cmt-smooth);
+  box-sizing: border-box;
+}
+
+.composer-textarea:focus,
+.reply-textarea:focus {
+  border-color: var(--cmt-cyan);
+  box-shadow: 0 0 12px var(--cmt-cyan-dim);
+}
+
+.composer-footer,
+.reply-box-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.word-counter {
+  font-family: var(--cmt-font-mono);
+  font-size: 10.5px;
+  color: var(--cmt-text-secondary);
+  letter-spacing: 0.3px;
+  transition: color 0.2s var(--cmt-smooth);
+}
+
+.word-counter.limit-exceeded {
+  color: var(--cmt-pink) !important;
+  font-weight: 800;
+  animation: counterShake 0.35s var(--cmt-spring);
+}
+
+@keyframes counterShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.comment-submit-btn,
+.reply-submit-btn {
+  background: var(--cmt-cyan);
+  color: #000000;
+  border: none;
+  padding: 6px 18px;
+  border-radius: 9999px;
+  font-family: var(--cmt-font-sans);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px var(--cmt-cyan-dim);
+  transition: transform 0.2s var(--cmt-spring), box-shadow 0.2s var(--cmt-smooth), opacity 0.2s;
+}
+
+.comment-submit-btn:hover:not(:disabled),
+.reply-submit-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 20px var(--cmt-cyan-glow);
+}
+
+.comment-submit-btn:active:not(:disabled),
+.reply-submit-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.comment-submit-btn:disabled,
+.reply-submit-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* -----------------------------------------------------------------------------
+   4. Scrollable Feed & Comment Cards
+   ----------------------------------------------------------------------------- */
+.comments-feed {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 4px;
+  padding-bottom: 40px;
+  overscroll-behavior: contain;
+}
+
+.comments-feed::-webkit-scrollbar {
+  width: 5px;
+}
+.comments-feed::-webkit-scrollbar-track {
+  background: transparent;
+}
+.comments-feed::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+}
+.comments-feed::-webkit-scrollbar-thumb:hover {
+  background: var(--cmt-cyan);
+}
+
+.comment-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: threadFadeIn 0.32s var(--cmt-smooth) backwards;
+}
+
+@keyframes threadFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.comment-card {
+  display: flex;
+  gap: 12px;
+  background: var(--cmt-card-bg);
+  border: 1px solid var(--cmt-border-subtle);
+  border-radius: 12px;
+  padding: 12px 14px;
+  transition: background 0.2s var(--cmt-smooth), border-color 0.2s var(--cmt-smooth), transform 0.2s var(--cmt-smooth);
+}
+
+.comment-card:hover {
+  background: var(--cmt-card-hover);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.comment-card.pinned {
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-left: 3.5px solid var(--cmt-cyan);
+  box-shadow: inset 0 0 20px rgba(0, 229, 255, 0.06);
+}
+
+.comment-content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0; /* Prevents text overflow breaks */
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.comment-user {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.2px;
+}
+
+.pinned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--cmt-cyan);
+  font-family: var(--cmt-font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  background: var(--cmt-cyan-dim);
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+}
+
+.comment-time {
+  font-size: 11px;
+  color: var(--cmt-text-muted);
+  font-family: var(--cmt-font-mono);
+}
+
+.comment-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #e2e8f0;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.comment-mention {
+  color: var(--cmt-cyan);
+  font-weight: 700;
+  background: var(--cmt-cyan-dim);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* -----------------------------------------------------------------------------
+   5. Action Buttons (YouTube & Instagram Micro-Interactions)
+   ----------------------------------------------------------------------------- */
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.comment-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--cmt-text-secondary);
+  font-family: var(--cmt-font-sans);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: color 0.15s, transform 0.15s var(--cmt-spring);
+}
+
+.comment-action-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.comment-action-btn:active {
+  transform: scale(0.88);
+}
+
+.comment-action-btn.active-like {
+  color: var(--cmt-cyan);
+  animation: heartPop 0.3s var(--cmt-spring);
+}
+
+.comment-action-btn.active-dislike {
+  color: var(--cmt-pink);
+  animation: heartPop 0.3s var(--cmt-spring);
+}
+
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.like-counter-val {
+  font-family: var(--cmt-font-mono);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* -----------------------------------------------------------------------------
+   6. Nested Thread Tree & Collapsible Handlers
+   ----------------------------------------------------------------------------- */
+.replies-wrapper {
+  margin-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thread-collapse-btn {
+  background: transparent;
+  border: none;
+  color: var(--cmt-cyan);
+  font-family: var(--cmt-font-sans);
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  align-self: flex-start;
+  transition: opacity 0.2s;
+}
+
+.thread-collapse-btn:hover {
+  opacity: 0.8;
+}
+
+.thread-line-indicator {
+  width: 24px;
+  height: 1.5px;
+  background: rgba(0, 229, 255, 0.4);
+}
+
+.replies-block {
+  padding-left: 12px;
+  border-left: 1.5px solid rgba(0, 229, 255, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reply-card {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.comment-avatar.small {
+  width: 26px;
+  height: 26px;
+}
+
+/* Inline Nested Reply Composer */
+.reply-input-box {
+  margin-top: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: slideFadeDown 0.22s var(--cmt-smooth);
+}
+
+@keyframes slideFadeDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.reply-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reply-cancel-btn {
+  background: transparent;
+  border: none;
+  color: var(--cmt-text-secondary);
+  font-family: var(--cmt-font-sans);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.reply-cancel-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* -----------------------------------------------------------------------------
+   7. Loading & Zero-Data Empty States
+   ----------------------------------------------------------------------------- */
+.comments-loading-state,
+.comments-empty-state {
+  text-align: center;
+  color: var(--cmt-text-secondary);
+  font-size: 13px;
+  margin: 40px auto;
+  line-height: 1.6;
+  max-width: 260px;
+}
+
+/* -----------------------------------------------------------------------------
+   8. Mobile Touch Ergonomics & Responsive Breakpoints
+   ----------------------------------------------------------------------------- */
+@media screen and (max-width: 768px) {
+  .comments-shell {
+    gap: 12px;
+  }
+  
+  .comment-composer {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+  
+  .composer-textarea,
+  .reply-textarea {
+    height: 60px;
+    font-size: 12.5px;
+    padding: 8px 10px;
+  }
+  
+  .comment-card {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+  
+  .composer-avatar,
+  .comment-avatar {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .replies-wrapper {
+    margin-left: 12px;
+  }
+  
+  .replies-block {
+    padding-left: 8px;
+    border-left-width: 1.5px;
+  }
+  
+  .comment-text {
+    font-size: 12.5px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .comments-header-bar {
+    padding-bottom: 8px;
+  }
+  
+  .count-text {
+    font-size: 11.5px;
+  }
+  
+  .sort-chip {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  
+  .composer-name-input {
+    font-size: 11.5px;
+  }
+  
+  .comment-submit-btn,
+  .reply-submit-btn {
+    padding: 5px 14px;
+    font-size: 11px;
+  }
+  
+  .comment-action-btn {
+    font-size: 11px;
+    padding: 2px 4px;
+  }
+}
+/* ============================================================
+   ANIMEEDGE COMMENTS — FULL-HEIGHT SCROLL FIX
+   Fixes nested scrolling and tiny comment-feed viewports.
+   Append to the very bottom of /comments/comments.css
+   ============================================================ */
+
+/* 1. The entire comments drawer is a bounded flex column. */
+#commentsDrawer {
+  display: flex !important;
+  flex-direction: column !important;
+
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+
+  overflow: hidden !important;
+}
+
+/* Keep the outer drawer heading visible. */
+#commentsDrawer > .drawer-header {
+  flex: 0 0 auto !important;
+  min-width: 0;
+}
+
+/* 2. The drawer content itself must NOT have a competing scrollbar. */
+#commentsDrawer > #commentsStageContainer,
+#commentsDrawer > .comments-drawer-content {
+  display: flex !important;
+  flex: 1 1 0px !important;
+  flex-direction: column !important;
+
+  width: 100% !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+/* 3. Let the generated comments interface fill the available height. */
+#commentsStageContainer > .comments-shell {
+  display: flex !important;
+  flex: 1 1 0px !important;
+  flex-direction: column !important;
+
+  width: 100% !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  padding: 12px !important;
+  gap: 12px !important;
+
+  overflow: hidden !important;
+}
+
+/* 4. Keep the comment count and sorting controls visible. */
+#commentsStageContainer .comments-header-bar {
+  display: flex;
+  flex: 0 0 auto !important;
+  align-items: center;
+  justify-content: space-between;
+
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+
+/* 5. Keep the composer visible while comments scroll. */
+#commentsStageContainer .comment-composer {
+  flex: 0 0 auto !important;
+
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+
+  margin: 0;
+}
+
+/* Prevent text inputs from stretching the drawer horizontally. */
+#commentsStageContainer .composer-user-row,
+#commentsStageContainer .composer-textarea-wrap,
+#commentsStageContainer .composer-footer {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#commentsStageContainer .composer-name-input,
+#commentsStageContainer .composer-textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 6. This is the ONE main scrolling area: the full comment feed. */
+#commentsStageContainer .comments-feed {
+  display: flex !important;
+  flex: 1 1 0px !important;
+  flex-direction: column !important;
+
+  width: 100% !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding: 2px 4px 16px 0 !important;
+  gap: 12px !important;
+
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 229, 255, .28) transparent;
+}
+
+/* Keep nested replies inside the scrolling feed. */
+#commentsStageContainer .comment-thread,
+#commentsStageContainer .comment-card,
+#commentsStageContainer .comment-content-area,
+#commentsStageContainer .replies-wrapper,
+#commentsStageContainer .replies-block {
+  min-width: 0;
+  max-width: 100%;
+}
+
+#commentsStageContainer .comment-thread {
+  flex: 0 0 auto;
+}
+
+/* Scrollbar styling. */
+#commentsStageContainer .comments-feed::-webkit-scrollbar {
+  width: 5px;
+}
+
+#commentsStageContainer .comments-feed::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#commentsStageContainer .comments-feed::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(0, 229, 255, .24);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #commentsStageContainer .comments-feed::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 229, 255, .52);
+  }
+}
+
+/* 7. Adapt to narrow embeds and low-height landscape screens. */
+@media (max-width: 480px) {
+  #commentsStageContainer > .comments-shell {
+    padding: 9px !important;
+    gap: 9px !important;
+  }
+
+  #commentsStageContainer .comments-feed {
+    padding-right: 3px !important;
+    gap: 9px !important;
+  }
+
+  #commentsStageContainer .comment-composer {
+    padding: 9px !important;
+  }
+}
+
+@media (max-height: 450px) {
+  #commentsStageContainer > .comments-shell {
+    padding: 7px !important;
+    gap: 7px !important;
+  }
+
+  #commentsStageContainer .comments-header-bar {
+    padding-bottom: 6px;
+  }
+
+  #commentsStageContainer .comment-composer {
+    gap: 6px;
+    padding: 7px 9px !important;
+  }
+
+  #commentsStageContainer .composer-textarea {
+    height: 42px !important;
+    min-height: 42px;
+  }
+
+  #commentsStageContainer .comments-feed {
+    gap: 8px !important;
+  }
+}
+
+/* 8. Respect reduced-motion settings. */
+@media (prefers-reduced-motion: reduce) {
+  #commentsStageContainer .comment-card,
+  #commentsStageContainer .comment-thread,
+  #commentsStageContainer .comment-action-btn {
+    animation: none !important;
+    transition: none !important;
+  }
+}
