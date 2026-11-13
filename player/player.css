@@ -1097,8 +1097,7 @@ body.afp-theater .player-stage {
   background: #000;
 }
 
-.afp-torrent__status,
-.afp-torrent__fallback {
+.afp-torrent__status {
   position: absolute;
   inset: 0;
   display: flex;
@@ -1112,6 +1111,28 @@ body.afp-theater .player-stage {
   color: #fff;
   font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
   transition: opacity .3s ease;
+}
+
+/* Never covers a working player: a slim bar at the bottom instead. */
+.afp-torrent__fallback {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 14px;
+  border-radius: 999px;
+  background: rgba(14, 14, 16, .88);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+  color: #fff;
+  font-family: var(--font-sans, "Plus Jakarta Sans", system-ui, sans-serif);
+  font-size: 12px;
+  white-space: nowrap;
+  max-width: calc(100% - 24px);
 }
 
 .afp-torrent__status.is-hidden {
@@ -1136,47 +1157,33 @@ body.afp-theater .player-stage {
   color: rgba(255, 255, 255, .55);
 }
 
-.afp-torrent__fallback b { font-size: 14px; font-weight: 700; }
-
-.afp-torrent__fallback p {
-  margin: 0;
-  max-width: 340px;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, .55);
+.afp-torrent__fallback span {
+  color: rgba(255, 255, 255, .7);
 }
 
-.afp-torrent__actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.afp-torrent__actions button,
-.afp-torrent__actions a {
+.afp-torrent__fallback button,
+.afp-torrent__fallback a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 9px 16px;
-  border-radius: var(--afp-pill, 999px);
+  padding: 6px 12px;
+  border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, .18);
   background: transparent;
   color: #fff;
-  font-size: 12.5px;
+  font: inherit;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
 }
 
-.afp-torrent__actions button {
+.afp-torrent__fallback button {
   background: #fff;
   border-color: #fff;
   color: #111;
 }
 
-.afp-torrent__actions a:hover { background: rgba(255, 255, 255, .1); }
+.afp-torrent__fallback a:hover { background: rgba(255, 255, 255, .12); }
 
 /* Escape hatch that never covers the player unless you go for it. */
 .afp-torrent__pill {

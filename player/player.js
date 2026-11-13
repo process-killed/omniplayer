@@ -925,16 +925,18 @@ export class VideoPlayerEngine {
   /**
    * Torrent playback runs inside WebTor's own player.
    *
-   * The magnet goes straight into the URL — that is WebTor's documented
-   * "direct link" form (`/show?magnet=…`). We deliberately do NOT add an
-   * `?id=` session parameter: with an id present the site switches into SDK
-   * mode, waits for a postMessage handshake, and renders its marketing home
-   * page if that handshake never arrives (which is exactly the bug this
-   * replaces).
+   * Two things matter here:
    *
-   * The frame is sandboxed without `allow-top-navigation`, so the site can
-   * never replace the page you are watching on, and there is always a manual
-   * "Open on WebTor" pill if a torrent genuinely has no peers.
+   * 1. WebTor's app is a session-based service. It writes cookies and calls
+   *    /auth/session/refresh. A sandboxed iframe gets its storage blocked in
+   *    several browsers, which makes that call fail with 401 and drops the
+   *    viewer on the marketing page. Their own SDK ships an unsandboxed
+   *    iframe, so we do the same.
+   *
+   * 2. The magnet is delivered the way their SDK does it: an `?id=` session
+   *    parameter plus an `init` message. If no handshake arrives we reload
+   *    once with the magnet in the URL (their direct-link form), and only
+   *    then offer a manual way out.
    */
   mountTorrent(magnet, stream = {}) {
     const host = $('#torrentPlayerContainer');
@@ -957,31 +959,28 @@ export class VideoPlayerEngine {
     host.classList.add('afp-torrent');
     host.replaceChildren();
 
+    const id =
+      window.crypto?.randomUUID?.() ||
+      `afp-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
     const encoded = encodeURIComponent(magnet);
 
-    // 1) player view with the magnet in the query, 2) WebTor's direct link.
-    this.torrentSources = [
-      `https://webtor.io/show?magnet=${encoded}&mode=video&pwd=%2F`,
-      `https://webtor.io/${encoded}`
-    ];
-    this.torrentIndex = 0;
-    this.torrentLoaded = false;
+    this.torrentId = id;
     this.torrentMagnet = magnet;
+    this.torrentHandshake = false;
+    this.torrentLoaded = false;
 
     const frame = document.createElement('iframe');
     frame.className = 'afp-torrent__frame';
     frame.title = 'Torrent player';
-    frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
-    frame.setAttribute('allowfullscreen', '');
+    frame.setAttribute(
+      'allow',
+      'autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write; display-capture'
+    );
     frame.setAttribute('webkitallowfullscreen', '');
     frame.setAttribute('mozallowfullscreen', '');
     frame.setAttribute('scrolling', 'no');
     frame.setAttribute('referrerpolicy', 'origin');
-    // No allow-top-navigation: the frame can never take over this tab.
-    frame.setAttribute(
-      'sandbox',
-      'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups allow-downloads'
-    );
 
     const status = document.createElement('div');
     status.className = 'afp-torrent__status';
@@ -1002,55 +1001,84 @@ export class VideoPlayerEngine {
     fallback.className = 'afp-torrent__fallback';
     fallback.hidden = true;
     fallback.innerHTML = `
-      <b>The torrent player did not load</b>
-      <p>Check your connection, then try again. Torrents also need at least one peer online.</p>
-      <div class="afp-torrent__actions">
-        <button type="button" data-retry>Try again</button>
-        <a href="https://webtor.io/show?magnet=${encoded}&mode=default"
-           target="_blank" rel="noopener noreferrer">Open on WebTor</a>
-      </div>
+      <span>Torrent player not starting?</span>
+      <button type="button" data-retry>Reload</button>
+      <a href="https://webtor.io/show?magnet=${encoded}&mode=default"
+         target="_blank" rel="noopener noreferrer">Open on WebTor</a>
     `;
 
     host.append(frame, status, pill, fallback);
 
-    frame.addEventListener('load', () => {
+    // Exactly what their SDK sends, with the same defaults.
+    const config = {
+      id,
+      magnet,
+      width: '100%',
+      height: '100%',
+      mode: 'video',
+      baseUrl: 'https://webtor.io',
+      header: true,
+      controls: true,
+      title: safeLabel(stream.title || this.meta.animeTitle || '', 80),
+      poster: this.meta.poster || null,
+      subtitles: [],
+      lang: 'en',
+      version: '0.2.19',
+      referer: location.href,
+      features: {}
+    };
+
+    this.onTorrentMessage = (event) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object' || data.id !== id) return;
+
+      this.torrentHandshake = true;
       this.torrentLoaded = true;
       status.classList.add('is-hidden');
       fallback.hidden = true;
-    });
+      clearTimeout(this.torrentTimer);
+      this.torrentTimer = null;
 
-    frame.addEventListener('error', () => this.tryNextTorrentSource());
+      if (data.name === 'init') {
+        try {
+          frame.contentWindow?.postMessage({ id, name: 'init', data: config }, '*');
+        } catch {
+          /* frame not reachable yet; their retry ping will come again */
+        }
+      }
+    };
+
+    window.addEventListener('message', this.onTorrentMessage);
+
+    frame.addEventListener('load', () => {
+      this.torrentLoaded = true;
+    });
 
     fallback.querySelector('[data-retry]')?.addEventListener('click', () => {
       this.mountTorrent(magnet, stream);
     });
 
-    frame.src = this.torrentSources[0];
+    frame.src = `https://webtor.io/show?id=${encodeURIComponent(id)}&mode=video`;
 
-    // Only cover the frame if it never loaded at all.
+    // Ladder: handshake → magnet URL → manual bar. Never a blank screen.
     this.torrentTimer = setTimeout(() => {
-      if (!this.torrentLoaded) this.tryNextTorrentSource();
-    }, 15000);
+      if (this.torrentHandshake) return;
+
+      this.torrentTimer = setTimeout(() => {
+        if (this.torrentHandshake) return;
+        status.classList.add('is-hidden');
+        fallback.hidden = false;
+      }, 12000);
+
+      this.torrentFrame = frame;
+      this.torrentStatus = status;
+      this.torrentFallback = fallback;
+      frame.src = `https://webtor.io/show?magnet=${encoded}&mode=video&pwd=%2F`;
+    }, 9000);
 
     this.torrentFrame = frame;
     this.torrentStatus = status;
     this.torrentFallback = fallback;
-  }
-
-  tryNextTorrentSource() {
-    if (!this.torrentFrame) return;
-
-    this.torrentIndex += 1;
-
-    if (this.torrentIndex < (this.torrentSources?.length || 0)) {
-      this.torrentLoaded = false;
-      this.torrentStatus?.classList.remove('is-hidden');
-      this.torrentFrame.src = this.torrentSources[this.torrentIndex];
-      return;
-    }
-
-    this.torrentStatus?.classList.add('is-hidden');
-    if (this.torrentFallback) this.torrentFallback.hidden = false;
   }
 
   clearTorrent() {
@@ -1060,6 +1088,12 @@ export class VideoPlayerEngine {
     this.torrentStatus = null;
     this.torrentFallback = null;
     this.torrentLoaded = false;
+    this.torrentHandshake = false;
+
+    if (this.onTorrentMessage) {
+      window.removeEventListener('message', this.onTorrentMessage);
+      this.onTorrentMessage = null;
+    }
 
     const host = $('#torrentPlayerContainer');
     if (host) {
@@ -1068,6 +1102,7 @@ export class VideoPlayerEngine {
     }
   }
 
+  /* --------------------------------------------------------------- source */
   /* --------------------------------------------------------------- source */
   /* --------------------------------------------------------------- source */
 
