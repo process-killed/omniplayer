@@ -243,6 +243,7 @@ class PlayerPage implements PageInstance, PlayerApi {
     this.setupBridge();
     this.setupMediaSession();
     this.watchConnection();
+    document.addEventListener('fullscreenchange', this.onFullscreenChange);
     this.wireStoreEvents();
     this.gestures.attach();
     this.keyboard.attach();
@@ -554,6 +555,9 @@ class PlayerPage implements PageInstance, PlayerApi {
     const full = !!document.fullscreenElement;
     const button = this.el.querySelector('#btn-fullscreen');
     if (button) button.innerHTML = icon(full ? 'minimize' : 'maximize', 20);
+    this.el.classList.toggle('is-fullscreen', full);
+    // Leaving fullscreen must always undo any rotation we applied.
+    if (!full) this.releaseOrientation();
   };
 
   private wirePlaybackEvents(): void {
@@ -1405,6 +1409,8 @@ class PlayerPage implements PageInstance, PlayerApi {
     const node = this.el.querySelector<HTMLElement>('#stats-overlay');
     if (!node) return;
     node.classList.toggle('hidden', !this.statsVisible);
+    document.removeEventListener('fullscreenchange', this.onFullscreenChange);
+    this.releaseOrientation();
     window.clearInterval(this.statsTimer);
     if (this.statsVisible) {
       this.updateStats();
@@ -2223,12 +2229,62 @@ class PlayerPage implements PageInstance, PlayerApi {
 
   private async toggleFullscreen(): Promise<void> {
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await this.el.requestFullscreen();
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await this.el.requestFullscreen();
+        await this.lockLandscape();
+      }
     } catch {
       toast('Fullscreen was blocked by the browser.', 'warn');
     }
   }
+
+  /**
+   * Turn a phone on its side for fullscreen.
+   *
+   * The Screen Orientation API is the only supported way to do this, and it is
+   * allowed only inside fullscreen. Where it is missing (iOS Safari) the player
+   * rotates itself with CSS instead, so the video still fills the screen.
+   */
+  private async lockLandscape(): Promise<void> {
+    const orientation = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+    const coarse = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    if (!coarse) return;
+
+    if (typeof orientation?.lock === 'function') {
+      try {
+        await orientation.lock('landscape');
+        this.rotatedFallback = false;
+        return;
+      } catch {
+        /* some browsers refuse without a user gesture — fall through */
+      }
+    }
+
+    // No orientation lock: rotate the stage ourselves when the screen is portrait.
+    if (window.innerHeight > window.innerWidth) {
+      this.el.classList.add('is-rotated');
+      this.rotatedFallback = true;
+      toast('Rotated to fit the screen — turn your device for the best view', 'info');
+    }
+  }
+
+  /** Undo everything fullscreen changed. */
+  private releaseOrientation(): void {
+    try {
+      const orientation = screen.orientation as ScreenOrientation & { unlock?: () => void };
+      orientation?.unlock?.();
+    } catch {
+      /* ignore */
+    }
+    if (this.rotatedFallback) {
+      this.el.classList.remove('is-rotated');
+      this.rotatedFallback = false;
+    }
+  }
+
+  private rotatedFallback = false;
 
   private async togglePip(): Promise<void> {
     const video = this.pm.currentEngine?.video;
@@ -2646,6 +2702,8 @@ class PlayerPage implements PageInstance, PlayerApi {
     this.danmaku.destroy();
     // Lifecycle hygiene: without this, closed players keep reacting to network
     // events and embed messages, and the stats timer keeps ticking.
+    document.removeEventListener('fullscreenchange', this.onFullscreenChange);
+    this.releaseOrientation();
     window.clearInterval(this.statsTimer);
     this.statsTimer = 0;
     for (const [type, handler] of this.connectionHandlers) window.removeEventListener(type, handler);
