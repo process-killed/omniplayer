@@ -22,6 +22,15 @@ describe('github source parsing', () => {
     ).toMatchObject({ owner: 'me', repo: 'ext', ref: 'main', rawManifest: true });
   });
 
+  it('understands refs/heads and refs/tags raw urls', () => {
+    const heads = parseGitHubSource('https://raw.githubusercontent.com/me/ext/refs/heads/main/manifest.json');
+    expect(heads).toMatchObject({ owner: 'me', repo: 'ext', ref: 'main', basePath: '', manifestPath: 'manifest.json' });
+    const tags = parseGitHubSource('https://raw.githubusercontent.com/me/ext/refs/tags/v1/manifest.json');
+    expect(tags).toMatchObject({ ref: 'v1' });
+    const nested = parseGitHubSource('https://raw.githubusercontent.com/me/ext/refs/heads/main/packages/ui/manifest.json');
+    expect(nested).toMatchObject({ basePath: 'packages/ui', manifestPath: 'packages/ui/manifest.json' });
+  });
+
   it('rejects anything that is not GitHub', () => {
     expect(parseGitHubSource('https://evil.example.com/me/ext')).toBeNull();
     expect(parseGitHubSource('https://cdn.jsdelivr.net/npm/pkg')).toBeNull();

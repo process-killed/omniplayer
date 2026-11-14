@@ -3012,3 +3012,23 @@ pre::-webkit-scrollbar,
   font-size: 12px;
   color: var(--txt-3);
 }
+
+/* ------------------------------------------------- extension page (sandboxed) */
+
+.ext-page-frame {
+  margin-top: 16px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  height: min(72vh, 720px);
+}
+
+.ext-page-iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: transparent;
+  color-scheme: dark;
+}

@@ -71,6 +71,20 @@ export function createExtensionsPage(_ctx: PageContext): PageInstance {
       void extensionManager.uninstall(extension.id).then(() => toast('Extension removed', 'ok'));
     }, true);
 
+    const pages = extensionManager.pagesFor(extension.id);
+    if (pages.length) {
+      const pageRow = el('div', { class: 'row', style: { marginTop: '8px', gap: '8px', flexWrap: 'wrap' } });
+      pages.forEach((page) => {
+        const open = el('button', { class: 'btn btn--sm', type: 'button' });
+        open.innerHTML = `${icon('externalLink', 14)} ${esc(page.title)}`;
+        open.addEventListener('click', () => {
+          _ctx.router.navigate('extension-page', { id: extension.id, page: page.id });
+        });
+        pageRow.append(open);
+      });
+      node.append(pageRow);
+    }
+
     node.append(actions);
     return node;
   };

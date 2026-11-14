@@ -34,10 +34,21 @@ export function parseGitHubSource(input: string): GitHubSource | null {
   const host = url.hostname.toLowerCase();
 
   // raw.githubusercontent.com/<owner>/<repo>/<ref>/<path...>
+  // The ref may itself be "refs/heads/main" or "refs/tags/v1", which GitHub
+  // emits in its own copy-link button — handle both shapes.
   if (host === 'raw.githubusercontent.com') {
     const parts = url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
     if (parts.length < 4) return null;
-    const [owner, repo, ref, ...rest] = parts;
+    const [owner, repo, ...tail] = parts;
+    let ref: string;
+    let rest: string[];
+    if (tail[0] === 'refs' && (tail[1] === 'heads' || tail[1] === 'tags') && tail.length >= 4) {
+      ref = tail[2];
+      rest = tail.slice(3);
+    } else {
+      ref = tail[0];
+      rest = tail.slice(1);
+    }
     if (!OWNER.test(owner) || !REPO.test(repo)) return null;
     const manifestPath = rest.join('/');
     if (!manifestPath.endsWith('manifest.json')) return null;

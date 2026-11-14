@@ -50,6 +50,8 @@ export class ExtensionManager {
   private sandboxes = new Map<string, ActiveSandbox>();
   private listeners = new Set<Listener>();
   private logs: Array<{ id: string; level: string; message: string; at: number }> = [];
+  /** Pages an extension registered at runtime: id → pages. */
+  private pages = new Map<string, Array<{ id: string; title: string; html?: string }>>();
   private loaded = false;
   private hooks: {
     getPlayerState?: () => unknown;
@@ -86,6 +88,29 @@ export class ExtensionManager {
     this.listeners.add(listener);
     listener(this.list());
     return () => this.listeners.delete(listener);
+  }
+
+  /** Namespaced storage access for host-rendered extension pages. */
+  kvGet(id: string, key: string): Promise<unknown> {
+    return extensionStore.kvGet(id, key);
+  }
+
+  kvSet(id: string, key: string, value: unknown): Promise<void> {
+    return extensionStore.kvSet(id, key, value);
+  }
+
+  /** Pages registered by an extension during its current activation. */
+  pagesFor(id: string): Array<{ id: string; title: string; html?: string }> {
+    return this.pages.get(id) ?? [];
+  }
+
+  /** Every page across active extensions, for the host router. */
+  allPages(): Array<{ extensionId: string; id: string; title: string; html?: string }> {
+    const out: Array<{ extensionId: string; id: string; title: string; html?: string }> = [];
+    this.pages.forEach((pages, extensionId) => {
+      pages.forEach((page) => out.push({ extensionId, ...page }));
+    });
+    return out;
   }
 
   logsFor(id: string): Array<{ level: string; message: string; at: number }> {
@@ -162,7 +187,11 @@ export class ExtensionManager {
       for (const path of preview.files) {
         const response = await fetch(rawFileUrl(source.owner, source.repo, commit, path), { cache: 'no-store' });
         if (!response.ok) {
-          return { ok: false, error: `Could not download ${path} (HTTP ${response.status})` };
+          const hint =
+            response.status === 404
+              ? ` — the file is missing at commit ${commit.slice(0, 7)}. Check the exact path and letter case in manifest.json, and that you pushed the file to the branch you installed from.`
+              : '';
+          return { ok: false, error: `Could not download ${path} (HTTP ${response.status})${hint}` };
         }
         const blob = await response.blob();
         if (blob.size > MAX_FILE_BYTES) return { ok: false, error: `${path} is larger than 4 MB` };
@@ -240,7 +269,12 @@ export class ExtensionManager {
       },
       onNavigation: (item) => this.hooks.addNavigation?.(id, item),
       onPage: (page) => {
+        const list = this.pages.get(id) ?? [];
+        const next = list.filter((entry) => entry.id !== page.id);
+        next.push({ id: page.id, title: page.title, html: page.html });
+        this.pages.set(id, next);
         this.logs.push({ id, level: 'info', message: `page registered: ${page.title}`, at: Date.now() });
+        this.emit();
       },
       onNotify: (message, kind) => this.hooks.notify?.(message, kind),
       getPlayerState: () => this.hooks.getPlayerState?.() ?? null,
@@ -280,7 +314,18 @@ export class ExtensionManager {
     return { available: commit !== record.commit, commit };
   }
 
+  /** Listen for page registrations across all active extensions. */
+  subscribePages(listener: (pages: Array<{ extensionId: string; id: string; title: string }>) => void): () => void {
+    const wrapped = () => listener(this.allPages().map(({ extensionId, id, title }) => ({ extensionId, id, title })));
+    this.pageListeners.add(wrapped);
+    wrapped();
+    return () => this.pageListeners.delete(wrapped);
+  }
+
+  private pageListeners = new Set<() => void>();
+
   private emit(): void {
+    this.pageListeners.forEach((listener) => listener());
     const list = this.list();
     this.listeners.forEach((listener) => listener(list));
   }

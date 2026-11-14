@@ -408,6 +408,7 @@ export type RouteName =
   | 'downloads'
   | 'developers'
   | 'extensions'
+  | 'extension-page'
   | 'playlist'
   | 'history'
   | 'bookmarks'
