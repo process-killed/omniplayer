@@ -16,6 +16,7 @@ import { createSharePage } from '../ui/pages/share';
 import { createTorrentsPage } from '../ui/pages/torrents';
 import { createDownloadsPage } from '../ui/pages/downloads';
 import { createDevelopersPage } from '../ui/pages/developers';
+import { createExtensionsPage } from '../ui/pages/extensions';
 import { createPlaylistPage } from '../ui/pages/playlist';
 import { createHistoryPage } from '../ui/pages/history';
 import { createBookmarksPage } from '../ui/pages/bookmarks';
@@ -43,6 +44,7 @@ const NAV: NavItem[] = [
   { route: 'downloads', label: 'Downloads', iconName: 'download', group: 'main' },
   { route: 'share', label: 'Embed & share', iconName: 'share', group: 'main' },
   { route: 'developers', label: 'For developers', iconName: 'code', group: 'main' },
+  { route: 'extensions', label: 'Extensions', iconName: 'package', group: 'system' },
   { route: 'diagnostics', label: 'Diagnostics', iconName: 'activity', group: 'system' },
   { route: 'settings', label: 'Settings', iconName: 'settings', group: 'system' },
   { route: 'about', label: 'About', iconName: 'info', group: 'system' },
@@ -58,6 +60,7 @@ const TITLES: Record<RouteName, string> = {
   torrents: 'Torrents',
   downloads: 'Downloads',
   developers: 'For developers',
+  extensions: 'Extensions',
   playlist: 'Playlist',
   history: 'History',
   bookmarks: 'Bookmarks',
@@ -400,6 +403,8 @@ export class App {
         return createDownloadsPage;
       case 'developers':
         return createDevelopersPage;
+      case 'extensions':
+        return createExtensionsPage;
       case 'playlist':
         return createPlaylistPage;
       case 'history':

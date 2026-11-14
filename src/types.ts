@@ -407,6 +407,7 @@ export type RouteName =
   | 'torrents'
   | 'downloads'
   | 'developers'
+  | 'extensions'
   | 'playlist'
   | 'history'
   | 'bookmarks'

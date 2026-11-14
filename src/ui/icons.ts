@@ -64,6 +64,7 @@ const ICONS: Record<string, IconDef> = {
   repeatOne: { body: `<path d="m17 2 4 4-4 4" ${S}/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4" ${S}/><path d="M21 13v2a4 4 0 0 1-4 4H3" ${S}/><path d="M12 9v6M10 11l2-2" ${S}/>` },
   shuffle: { body: `<path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" ${S}/>` },
   sun: { body: `<circle cx="12" cy="12" r="4" ${S}/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" ${S}/>` },
+  package: { body: `<path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z" ${S}/><path d="M3 7.5 12 12l9-4.5M12 12v9" ${S}/>` },
   cloud: { body: `<path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.2 10.5 4 4 0 0 0 7 19h10.5Z" ${S}/><path d="M12 12v6M9.5 15.5 12 18l2.5-2.5" ${S}/>` },
   message: { body: `<path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z" ${S}/><path d="M8.5 11h7M8.5 14.5h4" ${S}/>` },
   lock: { body: `<rect x="4" y="10" width="16" height="11" rx="2" ${S}/><path d="M8 10V7a4 4 0 0 1 8 0v3" ${S}/>` },

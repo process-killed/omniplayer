@@ -6,7 +6,7 @@ export interface RouteState {
   params: Record<string, string>;
 }
 
-const VALID: RouteName[] = ['home', 'open', 'url', 'player', 'embed', 'share', 'torrents', 'downloads', 'developers', 'playlist', 'history', 'bookmarks', 'settings', 'diagnostics', 'about'];
+const VALID: RouteName[] = ['home', 'open', 'url', 'player', 'embed', 'share', 'torrents', 'downloads', 'extensions', 'developers', 'playlist', 'history', 'bookmarks', 'settings', 'diagnostics', 'about'];
 
 /** Hash router — works from any static host, no server rewrites needed. */
 export class Router extends Emitter<{ change: RouteState }> {

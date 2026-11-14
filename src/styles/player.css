@@ -1488,6 +1488,13 @@ body.is-player-route .toasts {
   right: 8px;
   bottom: calc(8px + var(--safe-b));
   z-index: 46;
+  /* 20 tiles are taller than a short screen: cap the height and scroll inside,
+     so every control stays reachable instead of falling off the bottom. */
+  max-height: calc(100dvh - 24px - var(--safe-b));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   background: color-mix(in srgb, #0d0f16 96%, transparent);
   backdrop-filter: blur(28px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1991,6 +1998,8 @@ body.is-player-route .toasts {
 
 /* Sheet close control and error close button */
 .sheet__close {
+  position: sticky;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;

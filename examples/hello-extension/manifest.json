@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/process-killed/omniplayer/main/docs/extensions/MANIFEST-SCHEMA.json",
+  "manifestVersion": 1,
+  "id": "com.omniplay.hello",
+  "name": "Hello OmniPlay",
+  "version": "1.0.0",
+  "description": "Minimal reference extension: registers a navigation entry and keeps a counter in its own storage.",
+  "author": { "name": "OmniPlay" },
+  "repository": { "type": "github", "url": "https://github.com/process-killed/omniplayer" },
+  "license": "MIT",
+  "category": ["example"],
+  "compatibility": { "omniplayer": ">=1.24.0", "api": "^1.0.0" },
+  "entry": { "main": "./src/index.js", "type": "module" },
+  "files": { "scripts": ["./src/index.js"], "styles": [], "workers": [], "wasm": [], "assets": [] },
+  "capabilities": ["ui.navigation", "player.hooks"],
+  "permissions": ["ui.register", "storage.local", "player.read"],
+  "runtime": { "environment": "sandbox", "network": "deny-by-default" }
+}
