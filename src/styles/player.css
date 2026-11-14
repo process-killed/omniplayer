@@ -2076,15 +2076,20 @@ body.is-player-route .toasts {
 
 /* Portrait screen where orientation lock is unavailable (iOS Safari):
    rotate the stage so the video still fills the display. */
+/* Rotation is handled by the Screen Orientation API; the CSS fallback was
+   removed because a transformed fixed element clipped half the stage. */
 .player.is-rotated {
   position: fixed;
   inset: 0;
-  z-index: 999;
-  width: 100vh;
-  height: 100vw;
-  transform: rotate(90deg) translateY(-100%);
-  transform-origin: top left;
   background: #000;
+}
+
+.player.is-rotated .player__video,
+.player.is-rotated .player__canvas,
+.player.is-rotated .player__media {
+  object-fit: contain;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .player.is-rotated .pbar--bottom {
@@ -2093,4 +2098,45 @@ body.is-player-route .toasts {
 
 .player.is-rotated .pbar--top {
   padding-top: calc(10px + var(--safe-b));
+}
+
+
+/* Never let the frame grow past the stage: an aspect-ratio preset could make
+   .player__media taller than the viewport, and the stage then clipped half of it. */
+.player__stage {
+  overflow: hidden;
+}
+
+.player__media {
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.player__video,
+.player__canvas {
+  max-width: 100% !important;
+  max-height: 100% !important;
+}
+
+/* In fullscreen the whole frame must be visible, never cropped. */
+.player:fullscreen .player__media,
+.player.is-fullscreen .player__media {
+  height: 100% !important;
+  width: 100% !important;
+  aspect-ratio: auto !important;
+}
+
+
+/* Absolute positioning makes the frame's box exactly the stage: with only
+   percentages the browser fell back to the video's intrinsic ratio (844x475 in
+   a 390-tall viewport) and the stage clipped the bottom of the picture. */
+.player__media > .player__video,
+.player__media > .player__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
 }

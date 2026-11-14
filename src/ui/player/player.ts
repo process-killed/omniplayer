@@ -2255,18 +2255,16 @@ class PlayerPage implements PageInstance, PlayerApi {
     if (typeof orientation?.lock === 'function') {
       try {
         await orientation.lock('landscape');
-        this.rotatedFallback = false;
         return;
       } catch {
         /* some browsers refuse without a user gesture — fall through */
       }
     }
 
-    // No orientation lock: rotate the stage ourselves when the screen is portrait.
+    // No orientation lock (iOS Safari): do not fake it with a CSS rotation —
+    // that is what pushed half the stage off-screen. Ask the user instead.
     if (window.innerHeight > window.innerWidth) {
-      this.el.classList.add('is-rotated');
-      this.rotatedFallback = true;
-      toast('Rotated to fit the screen — turn your device for the best view', 'info');
+      toast('Turn your device sideways for full-screen video', 'info');
     }
   }
 
@@ -2278,13 +2276,9 @@ class PlayerPage implements PageInstance, PlayerApi {
     } catch {
       /* ignore */
     }
-    if (this.rotatedFallback) {
-      this.el.classList.remove('is-rotated');
-      this.rotatedFallback = false;
-    }
+    this.el.classList.remove('is-rotated');
   }
 
-  private rotatedFallback = false;
 
   private async togglePip(): Promise<void> {
     const video = this.pm.currentEngine?.video;
