@@ -65,9 +65,19 @@ const RUNTIME_HTML = `<!doctype html><html><head><meta charset="utf-8">
     },
   };
   window.omniplay = api;
-  window.addEventListener('message', (event) => {
+  window.addEventListener('message', async (event) => {
     const data = event.data;
     if (!data || data.__omniplayHost !== true) return;
+    if (data.type === 'activate' && data.payload && typeof data.payload.code === 'string') {
+      try {
+        const url = URL.createObjectURL(new Blob([data.payload.code], { type: 'text/javascript' }));
+        await import(url);
+        post({ type: 'log', level: 'info', message: 'extension entry executed' });
+      } catch (error) {
+        post({ type: 'log', level: 'error', message: 'entry failed: ' + String(error && error.message ? error.message : error) });
+      }
+      return;
+    }
     const handler = listeners.get(data.type);
     if (handler) {
       try { handler(data.payload); } catch (error) { post({ type: 'log', level: 'error', message: String(error) }); }
@@ -79,7 +89,7 @@ const RUNTIME_HTML = `<!doctype html><html><head><meta charset="utf-8">
 
 export function createSandbox(
   extension: InstalledExtension,
-  entryUrl: string,
+  code: string,
   hooks: SandboxHooks,
 ): ActiveSandbox {
   const frame = document.createElement('iframe');
@@ -105,8 +115,8 @@ export function createSandbox(
     try {
       switch (data.type) {
         case 'ready':
-          // Only now inject the extension's own entry module.
-          frame.contentWindow?.postMessage({ __omniplayHost: true, type: 'activate', payload: { entryUrl } }, '*');
+          // Only now hand over the entry source; the frame imports it itself.
+          frame.contentWindow?.postMessage({ __omniplayHost: true, type: 'activate', payload: { code } }, '*');
           break;
         case 'log':
           hooks.onLog(data.level, data.message);

@@ -70,14 +70,16 @@ export class ExtensionManager {
     try {
       const records = await extensionStore.all<InstalledExtension>();
       for (const record of records) {
-        // Anything left "enabled" from a previous session starts disabled: the
-        // user's approval is per-session for executable code.
-        this.installed.set(record.id, { ...record, state: record.state === 'enabled' ? 'installed' : record.state });
+        this.installed.set(record.id, record);
       }
     } catch {
       /* private mode */
     }
     this.emit();
+    // Restore extensions the user had enabled — the approval happened at install.
+    for (const record of this.installed.values()) {
+      if (record.state === 'enabled') void this.activate(record.id);
+    }
   }
 
   list(): InstalledExtension[] {
@@ -261,8 +263,8 @@ export class ExtensionManager {
       return;
     }
 
-    const entryUrl = URL.createObjectURL(new Blob([entry.blob], { type: 'text/javascript' }));
-    const sandbox = createSandbox(record, entryUrl, {
+    const code = await entry.blob.text();
+    const sandbox = createSandbox(record, code, {
       onLog: (level, message) => {
         this.logs.push({ id, level, message, at: Date.now() });
         if (this.logs.length > 500) this.logs.splice(0, 200);
