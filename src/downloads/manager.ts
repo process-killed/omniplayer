@@ -20,6 +20,33 @@ export class DownloadManager {
     if (this.loaded) return;
     this.loaded = true;
     try {
+      const saved = localStorage.getItem('omniplay:download-settings');
+      if (saved) this.settings = { ...this.settings, ...(JSON.parse(saved) as Partial<DownloadSettings>) };
+    } catch {
+      /* ignore */
+    }
+    if (typeof window === 'undefined') {
+      this.emit();
+      return;
+    }
+    window.addEventListener('offline', () => {
+      // Do not kill the jobs; mark them so the user sees why they stopped.
+      for (const job of this.list()) {
+        if (job.state === 'downloading') {
+          this.controllers.get(job.id)?.abort();
+        }
+      }
+    });
+    window.addEventListener('online', () => {
+      // Reconnect: resume anything that was paused by the network.
+      for (const job of this.list()) {
+        if (job.state === 'paused' && /network|offline|connection/i.test(job.error ?? '')) {
+          job.error = undefined;
+          this.resume(job.id);
+        }
+      }
+    });
+    try {
       for (const job of await downloadStore.jobs()) {
         // Anything interrupted by a reload becomes paused, never "downloading".
         if (job.state === 'downloading') job.state = 'paused';
@@ -33,7 +60,49 @@ export class DownloadManager {
 
   setSettings(next: Partial<DownloadSettings>): void {
     this.settings = { ...this.settings, ...next };
+    try {
+      localStorage.setItem('omniplay:download-settings', JSON.stringify(this.settings));
+    } catch {
+      /* ignore */
+    }
     this.pump();
+  }
+
+  /** Retry every failed job in one go. */
+  retryFailed(): number {
+    let count = 0;
+    for (const job of this.list()) {
+      if (job.state === 'failed') {
+        job.state = 'queued';
+        job.error = undefined;
+        job.received = 0;
+        count += 1;
+      }
+    }
+    if (count) {
+      this.emit();
+      this.pump();
+    }
+    return count;
+  }
+
+  /** Remove every finished, failed or cancelled job from the list. */
+  async clearFinished(): Promise<number> {
+    let count = 0;
+    for (const job of this.list()) {
+      if (job.state === 'done' || job.state === 'failed' || job.state === 'cancelled') {
+        this.jobs.delete(job.id);
+        await downloadStore.removeJob(job.id);
+        count += 1;
+      }
+    }
+    if (count) this.emit();
+    return count;
+  }
+
+  /** True when at least one job can be resumed. */
+  hasResumable(): boolean {
+    return this.list().some((job) => job.state === 'paused' || job.state === 'queued');
   }
 
   getSettings(): DownloadSettings {
@@ -167,10 +236,17 @@ export class DownloadManager {
           this.emit();
         },
       });
+      // Verify what we got matches what the server promised.
+      const expected = job.size;
+      if (expected !== null && expected > 0 && received !== expected) {
+        throw new Error(`Size mismatch: expected ${expected} bytes, received ${received}. The file may be incomplete.`);
+      }
       job.received = received;
       job.state = 'done';
       job.speed = 0;
       job.size = job.size ?? received;
+      job.error = undefined;
+      job.finishedAt = Date.now();
       await this.persist(job);
       await downloadStore.addHistory(job);
     } catch (error) {

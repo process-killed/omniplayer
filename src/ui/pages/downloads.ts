@@ -121,6 +121,15 @@ export function createDownloadsPage(_ctx: PageContext): PageInstance {
         el('label', { class: 'dl-inline' }, [fsToggle, el('span', { text: 'Save with the file picker' })]),
       ]),
       el('div', { class: 'row', style: { marginTop: '10px' } }, [
+        control('Retry failed', 'refresh', () => {
+          const count = downloads.retryFailed();
+          toast(count ? `Retrying ${count} download${count === 1 ? '' : 's'}` : 'Nothing to retry', count ? 'ok' : 'info');
+        }),
+        control('Clear finished', 'trash', () => {
+          void downloads.clearFinished().then((count) =>
+            toast(count ? `Removed ${count} item${count === 1 ? '' : 's'}` : 'Nothing to clear', 'ok'),
+          );
+        }),
         control('Choose download folder', 'folderOpen', () => void pickDirectory()),
         control('Export history', 'download', () => void exportHistory()),
       ]),

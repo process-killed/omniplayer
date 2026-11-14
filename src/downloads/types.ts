@@ -16,6 +16,8 @@ export interface DownloadJob {
   error?: string;
   createdAt: number;
   updatedAt: number;
+  /** Set when the job reached "done", used for the history view. */
+  finishedAt?: number;
   kind: 'file' | 'audio' | 'subtitle' | 'playlist';
 }
 
