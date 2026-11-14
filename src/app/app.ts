@@ -16,9 +16,6 @@ import { createSharePage } from '../ui/pages/share';
 import { createTorrentsPage } from '../ui/pages/torrents';
 import { createDownloadsPage } from '../ui/pages/downloads';
 import { createDevelopersPage } from '../ui/pages/developers';
-import { createExtensionsPage } from '../ui/pages/extensions';
-import { createExtensionPage } from '../ui/pages/extensionPage';
-import { extensionManager } from '../extensions/core/manager';
 import { createPlaylistPage } from '../ui/pages/playlist';
 import { createHistoryPage } from '../ui/pages/history';
 import { createBookmarksPage } from '../ui/pages/bookmarks';
@@ -46,7 +43,6 @@ const NAV: NavItem[] = [
   { route: 'downloads', label: 'Downloads', iconName: 'download', group: 'main' },
   { route: 'share', label: 'Embed & share', iconName: 'share', group: 'main' },
   { route: 'developers', label: 'For developers', iconName: 'code', group: 'main' },
-  { route: 'extensions', label: 'Extensions', iconName: 'package', group: 'system' },
   { route: 'diagnostics', label: 'Diagnostics', iconName: 'activity', group: 'system' },
   { route: 'settings', label: 'Settings', iconName: 'settings', group: 'system' },
   { route: 'about', label: 'About', iconName: 'info', group: 'system' },
@@ -62,8 +58,6 @@ const TITLES: Record<RouteName, string> = {
   torrents: 'Torrents',
   downloads: 'Downloads',
   developers: 'For developers',
-  extensions: 'Extensions',
-  'extension-page': 'Extension',
   playlist: 'Playlist',
   history: 'History',
   bookmarks: 'Bookmarks',
@@ -169,10 +163,6 @@ export class App {
     this.wireShell();
     this.wirePwa();
     this.renderNav();
-    if (!this.pagesWired) {
-      this.pagesWired = true;
-      extensionManager.subscribePages(() => this.renderNav());
-    }
     this.router.on('change', (state) => this.render(state.name));
     this.render(this.router.current.name);
 
@@ -298,27 +288,12 @@ export class App {
     this.scrim = null;
   }
 
-  private pagesWired = false;
-
   private renderNav(): void {
     this.navHost.innerHTML = '';
     const groups: Array<['main' | 'system', string]> = [
       ['main', 'Library'],
       ['system', 'System'],
     ];
-    const extensionPages = extensionManager.allPages();
-    if (extensionPages.length) {
-      this.navHost.append(el('div', { class: 'nav__label', text: 'Extensions' }));
-      for (const page of extensionPages) {
-        const button = el('button', { class: 'nav__item', type: 'button' });
-        button.innerHTML = `${icon('package', 18)}<span>${esc(page.title)}</span>`;
-        button.addEventListener('click', () => {
-          this.closeSidebar();
-          this.router.navigate('extension-page', { id: page.extensionId, page: page.id });
-        });
-        this.navHost.append(button);
-      }
-    }
 
     for (const [group, label] of groups) {
       this.navHost.append(el('div', { class: 'nav__label', text: label }));
@@ -426,10 +401,6 @@ export class App {
         return createDownloadsPage;
       case 'developers':
         return createDevelopersPage;
-      case 'extensions':
-        return createExtensionsPage;
-      case 'extension-page':
-        return createExtensionPage;
       case 'playlist':
         return createPlaylistPage;
       case 'history':
