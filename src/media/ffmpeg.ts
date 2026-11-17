@@ -225,7 +225,21 @@ export async function loadFfmpeg(onLog?: (line: string) => void, customCoreUrl?:
       }
       onLog?.('Downloading the FFmpeg core (~30 MB, cached by the browser after the first run)…');
       try {
-        await ffmpeg.load({ coreURL, wasmURL });
+        // The worker runs as a module, where importScripts() is unavailable and a
+        // cross-origin script cannot be imported directly. Fetching the core and
+        // wrapping it in a same-origin blob URL is the documented way to load it.
+        let loadConfig: { coreURL: string; wasmURL: string } = { coreURL, wasmURL };
+        try {
+          const { toBlobURL } = await import('@ffmpeg/util');
+          loadConfig = {
+            coreURL: await toBlobURL(coreURL, 'text/javascript'),
+            wasmURL: await toBlobURL(wasmURL, 'application/wasm'),
+          };
+          onLog?.('Core fetched and wrapped in same-origin blob URLs');
+        } catch (wrapError) {
+          onLog?.(`Could not pre-fetch the core (${describeError(wrapError)}); trying direct URLs`);
+        }
+        await ffmpeg.load(loadConfig);
         onLog?.('FFmpeg ready');
         instance = ffmpeg;
         return ffmpeg;
