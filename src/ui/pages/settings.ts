@@ -264,6 +264,18 @@ export function createSettingsPage(ctx: PageContext): PageInstance {
 
       case 'playback': {
         panel.append(
+          sectionCard('FFmpeg-assisted playback', 'Last resort for files the browser refuses — AVI, FLV, HEVC-in-MKV. It runs on your device and never uploads anything.', [
+            switchRow(
+              'Offer “Fix & play with FFmpeg”',
+              'Off by default. When on, the player menu gains an action that remuxes or transcodes the current file with FFmpeg.wasm. It downloads a ~30 MB core and can take minutes — it never starts on its own.',
+              settings.ffmpegPlayback,
+              (value) => update({ ffmpegPlayback: value }),
+            ),
+            notice(
+              'This cannot bypass CORS. If a host blocks browser access, FFmpeg is blocked exactly the same way — use a proxy in Settings → Network instead.',
+              'warn',
+            ),
+          ]),
           sectionCard('Speed & seeking', 'Defaults for every new file.', [
             settingRow('Default speed', 'You can still change it in the player.', selectControl(String(settings.defaultRate), [0.5, 0.75, 1, 1.25, 1.5, 2].map((value) => ({ value: String(value), label: `${value}×` })), (value) => update({ defaultRate: Number(value) }))),
             switchRow('Preserve audio pitch', 'Keeps voices natural when speeding up or slowing down (native engine).', settings.pitchPreserved, (value) => update({ pitchPreserved: value })),

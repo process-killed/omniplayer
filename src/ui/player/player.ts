@@ -16,6 +16,7 @@ import { DEFAULT_KEYBINDINGS, KEY_ACTION_LABELS } from '../../storage/settings';
 import { DanmakuEngine, parseDanmaku, randomDanmakuColor } from '../../danmaku/engine';
 import { rankSources, recordAttempt, rememberSource, preferredSource } from '../../core/sourceHealth';
 import { loadPlaybackState, savePlaybackState } from '../../storage/playbackState';
+import { fixForPlayback } from '../../media/ffmpegPlayback';
 import { ResourceGovernor } from '../../core/resourceGovernor';
 import { budgetsFor, deviceReport } from '../../core/deviceProfile';
 import { GestureManager } from '../../gestures/gestures';
@@ -1409,6 +1410,7 @@ class PlayerPage implements PageInstance, PlayerApi {
     const node = this.el.querySelector<HTMLElement>('#stats-overlay');
     if (!node) return;
     node.classList.toggle('hidden', !this.statsVisible);
+    this.ffmpegAbort?.abort();
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     this.releaseOrientation();
     window.clearInterval(this.statsTimer);
@@ -1458,6 +1460,9 @@ class PlayerPage implements PageInstance, PlayerApi {
       [this.pm.paused ? 'Play' : 'Pause', this.pm.paused ? 'play' : 'pause', () => this.togglePlay(), 'Space'],
       ['Screenshot', 'scan', () => void this.screenshot(), 'S'],
       ['Download this file', 'download', () => void this.downloadCurrent(), ''],
+      ...(this.store.settings.ffmpegPlayback
+        ? ([['Fix & play with FFmpeg', 'wand', () => void this.fixWithFfmpeg(), '']] as Array<[string, string, () => void, string]>)
+        : []),
       ['Copy link at this time', 'copy', () => void this.copyShareLink(), ''],
       ['Danmaku', 'message', () => this.toggleDanmaku(), 'D'],
       ['Stats for nerds', 'activity', () => this.toggleStats(), 'I'],
@@ -2317,6 +2322,54 @@ class PlayerPage implements PageInstance, PlayerApi {
   }
 
   /** Queue the current media (or its subtitle file) in the download manager. */
+  /**
+   * Last-resort playback: remux or transcode the current source on-device.
+   * Only offered when the user enabled it — it downloads a 30 MB WASM core and
+   * can take minutes, so it must never happen behind their back.
+   */
+  private ffmpegAbort: AbortController | null = null;
+
+  private async fixWithFfmpeg(): Promise<void> {
+    const media = this.store.current;
+    if (!media?.url) {
+      toast('This source has no URL to read.', 'warn');
+      return;
+    }
+    const controller = new AbortController();
+    this.ffmpegAbort = controller;
+    this.setLoading(true, 'Reading the file for FFmpeg…');
+    try {
+      const response = await fetch(media.url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      const file = new File([blob], media.name || 'media', { type: blob.type });
+
+      this.setLoading(true, 'FFmpeg is working — this can take a few minutes…');
+      const result = await fixForPlayback({
+        file,
+        name: media.name || 'media',
+        signal: controller.signal,
+        onProgress: (ratio) => this.setLoading(true, `FFmpeg ${Math.round(ratio * 100)}% — keep this tab open`),
+        onLog: (line) => log.debug('ffmpeg', line),
+      });
+
+      const spec = this.ctx.session.specFromUrl(result.url, `${media.name} (fixed)`);
+      this.ctx.session.play(spec);
+      toast(`Playable version ready (${result.strategy === 'remux' ? 'stream copy' : 'transcoded'})`, 'ok');
+    } catch (error) {
+      const message = (error as Error).message;
+      toast(
+        /Failed to fetch|CORS|NetworkError/i.test(message)
+          ? 'FFmpeg cannot read this file either: the host blocks browser access. Add a proxy in Settings → Network, or fix the bucket CORS policy.'
+          : message,
+        'warn',
+      );
+    } finally {
+      this.ffmpegAbort = null;
+      this.setLoading(false);
+    }
+  }
+
   private async downloadCurrent(kind: 'file' | 'subtitle' = 'file'): Promise<void> {
     const media = this.store.current;
     const url = media?.url;
@@ -2696,6 +2749,7 @@ class PlayerPage implements PageInstance, PlayerApi {
     this.danmaku.destroy();
     // Lifecycle hygiene: without this, closed players keep reacting to network
     // events and embed messages, and the stats timer keeps ticking.
+    this.ffmpegAbort?.abort();
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     this.releaseOrientation();
     window.clearInterval(this.statsTimer);
@@ -2720,6 +2774,7 @@ class PlayerPage implements PageInstance, PlayerApi {
       }
     }
     this.unsubs = [];
+    this.ffmpegAbort?.abort();
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     document.removeEventListener('webkitfullscreenchange', this.onFullscreenChange);
     document.body.classList.remove('is-playing');

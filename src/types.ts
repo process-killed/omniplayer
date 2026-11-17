@@ -358,6 +358,8 @@ export interface Settings {
   danmakuArea: number;
   torrentGateway: string;
   /** How magnets play: auto (gateway if set, else webtor.io), or forced. */
+  /** Offer FFmpeg-assisted playback when a file will not play natively. */
+  ffmpegPlayback: boolean;
   torrentProvider: 'auto' | 'gateway' | 'webtorrent';
   /** 'auto' follows the detected device profile. */
   deviceProfile: 'auto' | 'low' | 'balanced' | 'high' | 'tv';
