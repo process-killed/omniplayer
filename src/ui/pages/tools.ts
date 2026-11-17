@@ -125,6 +125,7 @@ export function createToolsPage(ctx: PageContext): PageInstance {
       const result = await runFfmpegJob({
         file,
         preset,
+        coreUrl: ctx.store.settings.ffmpegCoreUrl,
         signal: controller.signal,
         onLog: appendLog,
         onProgress: (ratio, seconds) => {

@@ -360,6 +360,8 @@ export interface Settings {
   /** How magnets play: auto (gateway if set, else webtor.io), or forced. */
   /** Offer FFmpeg-assisted playback when a file will not play natively. */
   ffmpegPlayback: boolean;
+  /** Optional self-hosted (smaller) FFmpeg core directory. */
+  ffmpegCoreUrl: string;
   torrentProvider: 'auto' | 'gateway' | 'webtorrent';
   /** 'auto' follows the detected device profile. */
   deviceProfile: 'auto' | 'low' | 'balanced' | 'high' | 'tv';

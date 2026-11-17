@@ -1,7 +1,7 @@
 import type { PageContext, PageInstance } from './types';
 import { el, esc, openModal, toast, downloadFile } from '../dom';
 import { icon } from '../icons';
-import { notice, pageHead, rangeControl, selectControl, settingRow, switchRow } from '../components';
+import { notice, pageHead, rangeControl, selectControl, settingRow, switchRow, textField } from '../components';
 import { deviceReport } from '../../core/deviceProfile';
 import { ACCENT_CHOICES, DEFAULT_KEYBINDINGS, EQ_PRESETS, exportSettings, importSettings, KEY_ACTION_LABELS } from '../../storage/settings';
 import { library } from '../../storage/library';
@@ -270,6 +270,11 @@ export function createSettingsPage(ctx: PageContext): PageInstance {
               'Off by default. When on, the player menu gains an action that remuxes or transcodes the current file with FFmpeg.wasm. It downloads a ~30 MB core and can take minutes — it never starts on its own.',
               settings.ffmpegPlayback,
               (value) => update({ ffmpegPlayback: value }),
+            ),
+            settingRow(
+              'Core URL (optional)',
+              'Point this at your own smaller ffmpeg-core build (a directory containing ffmpeg-core.js and ffmpeg-core.wasm). Leave empty to use the public mirrors.',
+              textField('Core directory URL', settings.ffmpegCoreUrl, 'https://your-host/ffmpeg-core', (value) => update({ ffmpegCoreUrl: value }), 'url'),
             ),
             notice(
               'This cannot bypass CORS. If a host blocks browser access, FFmpeg is blocked exactly the same way — use a proxy in Settings → Network instead.',

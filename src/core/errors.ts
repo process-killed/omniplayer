@@ -223,6 +223,13 @@ export function httpErrorForStatus(status: number, url: string): AppError {
 /** Strip query strings so signed tokens never reach logs or diagnostics. */
 export function redactUrl(url?: string): string {
   if (!url) return '—';
+  // A blob URL's `origin` is the *inner* origin and its `pathname` already
+  // contains the full inner URL, so the naive join produced
+  // "https://hosthttps://host/uuid". Keep blob/data URLs opaque instead.
+  if (/^(blob|data|filesystem):/i.test(url)) {
+    const id = url.split('/').pop() ?? '';
+    return `${url.slice(0, url.indexOf(':') + 1)}…${id ? `/${id.slice(0, 8)}…` : ''}`;
+  }
   try {
     const parsed = new URL(url);
     const hasQuery = parsed.search.length > 1;

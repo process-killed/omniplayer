@@ -2348,6 +2348,7 @@ class PlayerPage implements PageInstance, PlayerApi {
       const result = await fixForPlayback({
         file,
         name: media.name || 'media',
+        coreUrl: this.store.settings.ffmpegCoreUrl,
         signal: controller.signal,
         onProgress: (ratio) => this.setLoading(true, `FFmpeg ${Math.round(ratio * 100)}% — keep this tab open`),
         onLog: (line) => log.debug('ffmpeg', line),

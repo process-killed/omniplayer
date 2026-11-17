@@ -25,3 +25,14 @@ describe('ffmpeg playback planning', () => {
     expect(planFfmpegPlayback('a.mkv', 10 * MB, 'balanced').reason).toContain('Stream copy');
   });
 });
+
+describe('blob url redaction', () => {
+  it('does not merge a blob origin with its path', async () => {
+    const { redactUrl } = await import('../src/core/errors');
+    const url = 'blob:https://omniplayz.pages.dev/dd236d0c-2b1c-403f-9d1a-198d2b4faf8b';
+    const redacted = redactUrl(url);
+    expect(redacted.startsWith('blob:')).toBe(true);
+    expect(redacted).not.toContain('https://omniplayz.pages.devhttps://');
+    expect(redactUrl('https://host/path?token=secret')).toBe('https://host/path?…');
+  });
+});

@@ -16,7 +16,41 @@
 import { budgetsFor, deviceReport } from '../core/deviceProfile';
 
 const CORE_VERSION = '0.12.6';
-const CDN = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`;
+
+/**
+ * Mirrors for the core. jsDelivr occasionally fails from some networks; if the
+ * first mirror does not answer a HEAD request we move to the next one instead of
+ * failing with an opaque "error: undefined".
+ */
+export const CORE_MIRRORS = [
+  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
+  `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
+];
+
+/** Allow a self-hosted, smaller core build (see Settings → Playback). */
+function mirrorFor(custom?: string): string[] {
+  const trimmed = (custom ?? '').trim().replace(/\/+$/, '');
+  return trimmed ? [trimmed, ...CORE_MIRRORS] : CORE_MIRRORS;
+}
+
+async function reachable(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof Error) return error.message || error.name || 'unknown error';
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
 
 export type FfmpegPresetId =
   | 'remux-mp4'
@@ -142,6 +176,7 @@ export function limitsForDevice(_inputBytes: number, profile?: string): JobLimit
 export interface FfmpegRunOptions {
   file: File;
   preset: FfmpegPreset;
+  coreUrl?: string;
   onProgress?: (ratio: number, seconds: number) => void;
   onLog?: (line: string) => void;
   signal?: AbortSignal;
@@ -166,7 +201,7 @@ let instance: FFmpegLike | null = null;
 let loading: Promise<FFmpegLike> | null = null;
 
 /** Load the wrapper and the 30 MB core once, on first use. */
-export async function loadFfmpeg(onLog?: (line: string) => void): Promise<FFmpegLike> {
+export async function loadFfmpeg(onLog?: (line: string) => void, customCoreUrl?: string): Promise<FFmpegLike> {
   if (instance) return instance;
   if (loading) return loading;
 
@@ -176,21 +211,42 @@ export async function loadFfmpeg(onLog?: (line: string) => void): Promise<FFmpeg
     ffmpeg.on('log', ({ message }) => {
       if (message) onLog?.(message);
     });
-    onLog?.('Downloading the FFmpeg core (~30 MB, cached by the browser after the first run)…');
-    await ffmpeg.load({
-      coreURL: `${CDN}/ffmpeg-core.js`,
-      wasmURL: `${CDN}/ffmpeg-core.wasm`,
-    });
-    onLog?.('FFmpeg ready');
-    instance = ffmpeg;
-    return ffmpeg;
+
+    const mirrors = mirrorFor(customCoreUrl);
+    let lastError = '';
+    for (const [index, base] of mirrors.entries()) {
+      const coreURL = `${base}/ffmpeg-core.js`;
+      const wasmURL = `${base}/ffmpeg-core.wasm`;
+      onLog?.(`Checking FFmpeg core mirror ${index + 1}/${mirrors.length}…`);
+      if (!(await reachable(coreURL))) {
+        lastError = `mirror unreachable: ${base}`;
+        onLog?.(lastError);
+        continue;
+      }
+      onLog?.('Downloading the FFmpeg core (~30 MB, cached by the browser after the first run)…');
+      try {
+        await ffmpeg.load({ coreURL, wasmURL });
+        onLog?.('FFmpeg ready');
+        instance = ffmpeg;
+        return ffmpeg;
+      } catch (error) {
+        lastError = describeError(error);
+        onLog?.(`Core failed from ${base}: ${lastError}`);
+      }
+    }
+
+    throw new Error(
+      lastError
+        ? `The FFmpeg core could not be loaded (${lastError}). Check your connection, or set a self-hosted core URL in Settings → Playback.`
+        : 'The FFmpeg core could not be loaded. Check your connection or set a self-hosted core URL in Settings → Playback.',
+    );
   })();
 
   try {
     return await loading;
   } catch (error) {
     loading = null;
-    throw error;
+    throw new Error(describeError(error));
   }
 }
 
@@ -226,7 +282,7 @@ export async function runFfmpegJob(options: FfmpegRunOptions): Promise<FfmpegRun
     throw new Error(limits.reason ?? 'This device cannot re-encode video.');
   }
 
-  const ffmpeg = await loadFfmpeg(onLog);
+  const ffmpeg = await loadFfmpeg(onLog, options.coreUrl);
   const inputName = `input.${(file.name.split('.').pop() ?? 'bin').toLowerCase()}`;
   const outputName = `output.${preset.extension}`;
   const started = performance.now();

@@ -136,6 +136,7 @@ export const DEFAULT_SETTINGS: Settings = {
   danmakuArea: 0.5,
   torrentGateway: '',
   ffmpegPlayback: false,
+  ffmpegCoreUrl: '',
   torrentProvider: 'webtorrent',
   deviceProfile: 'auto',
   corsProxy: '',

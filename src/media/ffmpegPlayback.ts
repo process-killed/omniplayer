@@ -73,12 +73,14 @@ export interface FixPlayOptions {
  * Prepare a file for playback and return an object URL for the result.
  * The caller owns the URL and must revoke it when playback ends.
  */
-export async function fixForPlayback(options: FixPlayOptions): Promise<{ url: string; blob: Blob; strategy: PlaybackStrategy }> {
-  const { file, name, onProgress, onLog, signal } = options;
+export async function fixForPlayback(
+  options: FixPlayOptions & { coreUrl?: string },
+): Promise<{ url: string; blob: Blob; strategy: PlaybackStrategy }> {
+  const { file, name, onProgress, onLog, signal, coreUrl } = options;
   const plan = planFfmpegPlayback(name, file.size);
   if (plan.strategy === 'refuse') throw new Error(plan.reason);
 
-  const ffmpeg = await loadFfmpeg(onLog);
+  const ffmpeg = await loadFfmpeg(onLog, coreUrl);
   const input = `in.${(name.split('.').pop() ?? 'bin').toLowerCase()}`;
   const output = 'out.mp4';
 
