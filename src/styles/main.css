@@ -3032,3 +3032,105 @@ pre::-webkit-scrollbar,
   background: transparent;
   color-scheme: dark;
 }
+
+/* --------------------------------------------------------------- media tools */
+
+.tools-file {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--txt-2);
+  overflow-wrap: anywhere;
+}
+
+.tools-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.tools-preset {
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--txt);
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 140ms var(--ease-spring), background 160ms ease;
+}
+
+.tools-preset:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+.tools-preset.is-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.tools-preset:disabled,
+.tools-preset.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tools-preset b {
+  font-size: 13.5px;
+}
+
+.tools-preset span {
+  font-size: 12px;
+  color: var(--txt-3);
+  line-height: 1.5;
+}
+
+.tools-preset em {
+  justify-self: start;
+  font-style: normal;
+  margin-top: 2px;
+}
+
+.tools-status {
+  margin-top: 14px;
+  font-size: 12.5px;
+  color: var(--txt-2);
+  min-height: 18px;
+}
+
+.tools-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+  margin-top: 12px;
+  opacity: 0.4;
+  transition: opacity 200ms ease;
+}
+
+.tools-bar.is-active {
+  opacity: 1;
+}
+
+.tools-bar__fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 200ms ease;
+}
+
+.tools-log {
+  margin-top: 12px;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  font: 11.5px/1.5 var(--font-mono);
+  color: var(--txt-3);
+  white-space: pre-wrap;
+}

@@ -15,6 +15,7 @@ import { createUrlPage } from '../ui/pages/url';
 import { createSharePage } from '../ui/pages/share';
 import { createTorrentsPage } from '../ui/pages/torrents';
 import { createDownloadsPage } from '../ui/pages/downloads';
+import { createToolsPage } from '../ui/pages/tools';
 import { createDevelopersPage } from '../ui/pages/developers';
 import { createPlaylistPage } from '../ui/pages/playlist';
 import { createHistoryPage } from '../ui/pages/history';
@@ -41,6 +42,7 @@ const NAV: NavItem[] = [
   { route: 'bookmarks', label: 'Bookmarks', iconName: 'bookmark', badge: () => library.bookmarks.length, group: 'main' },
   { route: 'torrents', label: 'Torrents', iconName: 'cloud', group: 'main' },
   { route: 'downloads', label: 'Downloads', iconName: 'download', group: 'main' },
+  { route: 'tools', label: 'Media tools', iconName: 'sliders', group: 'main' },
   { route: 'share', label: 'Embed & share', iconName: 'share', group: 'main' },
   { route: 'developers', label: 'For developers', iconName: 'code', group: 'main' },
   { route: 'diagnostics', label: 'Diagnostics', iconName: 'activity', group: 'system' },
@@ -57,6 +59,7 @@ const TITLES: Record<RouteName, string> = {
   share: 'Embed & share',
   torrents: 'Torrents',
   downloads: 'Downloads',
+  tools: 'Media tools',
   developers: 'For developers',
   playlist: 'Playlist',
   history: 'History',
@@ -399,6 +402,8 @@ export class App {
         return createTorrentsPage;
       case 'downloads':
         return createDownloadsPage;
+      case 'tools':
+        return createToolsPage;
       case 'developers':
         return createDevelopersPage;
       case 'playlist':

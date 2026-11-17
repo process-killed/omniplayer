@@ -1,8 +1,8 @@
 {
   "name": "omniplay",
   "private": true,
-  "version": "1.22.0",
-  "description": "OmniPlay \u2014 a universal, client-side browser media player (VLC + MX Player class) built with TypeScript, WebCodecs, MSE, Web Audio and a styled ASS subtitle engine.",
+  "version": "1.24.0",
+  "description": "OmniPlay — a universal, client-side browser media player (VLC + MX Player class) built with TypeScript, WebCodecs, MSE, Web Audio and a styled ASS subtitle engine.",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -32,6 +32,8 @@
     "pro": "node scripts/smoke-pro.mjs"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1",
     "dashjs": "^5.3.0",
     "hls.js": "^1.7.4",
     "mediabunny": "^1.65.2",

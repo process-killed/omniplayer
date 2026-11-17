@@ -232,10 +232,19 @@ export function showPopover(
   const align = options.align ?? 'start';
   let left = align === 'end' ? rect.right - width : align === 'center' ? rect.left + rect.width / 2 - width / 2 : rect.left;
   left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+  // Cap the height to the viewport *before* measuring, then clamp the position
+  // so a long menu opened near an edge still fits (and scrolls inside itself).
+  const maxHeight = Math.min(window.innerHeight - 16, 520);
+  pop.style.maxHeight = `${maxHeight}px`;
   let top = rect.bottom + 8;
   const height = pop.offsetHeight;
   if (top + height > window.innerHeight - 8) {
     top = Math.max(8, rect.top - height - 8);
+  }
+  // Last resort: if it still cannot fit above the anchor, pin it to the top edge
+  // and let the internal scroll take over.
+  if (top + height > window.innerHeight - 8) {
+    top = Math.max(8, window.innerHeight - height - 8);
   }
   pop.style.left = `${left}px`;
   pop.style.top = `${top}px`;
@@ -330,8 +339,8 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
-export function downloadFile(filename: string, content: string, mime = 'application/json'): void {
-  const blob = new Blob([content], { type: mime });
+export function downloadFile(filename: string, content: string | Blob, mime = 'application/json'): void {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const link = el('a', { href: url, download: filename });
   document.body.append(link);

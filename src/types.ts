@@ -406,6 +406,7 @@ export type RouteName =
   | 'share'
   | 'torrents'
   | 'downloads'
+  | 'tools'
   | 'developers'
   | 'playlist'
   | 'history'
