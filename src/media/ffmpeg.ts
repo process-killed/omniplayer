@@ -22,7 +22,17 @@ const CORE_VERSION = '0.12.6';
  * first mirror does not answer a HEAD request we move to the next one instead of
  * failing with an opaque "error: undefined".
  */
+/**
+ * Core variants, in the order they are tried.
+ *
+ * @ffmpeg/ffmpeg creates its worker with `{ type: 'module' }`. Inside a module
+ * worker `importScripts()` does not exist, so the worker falls back to
+ * `await import(coreURL)` — which only works with the **ESM** core. The UMD
+ * core is kept as a second attempt for environments with a classic worker.
+ */
 export const CORE_MIRRORS = [
+  `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/esm`,
+  `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/esm`,
   `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
   `https://unpkg.com/@ffmpeg/core@${CORE_VERSION}/dist/umd`,
 ];

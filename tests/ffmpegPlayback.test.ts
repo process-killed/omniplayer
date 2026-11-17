@@ -36,3 +36,15 @@ describe('blob url redaction', () => {
     expect(redactUrl('https://host/path?token=secret')).toBe('https://host/path?…');
   });
 });
+
+describe('ffmpeg core mirrors', () => {
+  it('tries the ESM core before the UMD core', async () => {
+    const { CORE_MIRRORS } = await import('../src/media/ffmpeg');
+    const esmFirst = CORE_MIRRORS.findIndex((url) => url.includes('/dist/esm'));
+    const umdFirst = CORE_MIRRORS.findIndex((url) => url.includes('/dist/umd'));
+    expect(esmFirst).toBe(0);
+    expect(umdFirst).toBeGreaterThan(esmFirst);
+    // A module worker cannot use importScripts, so ESM must be attempted first.
+    expect(CORE_MIRRORS.every((url) => url.startsWith('https://'))).toBe(true);
+  });
+});
