@@ -2,7 +2,7 @@ import type { PageContext, PageInstance } from './types';
 import { el, esc, toast, copyText } from '../dom';
 import { icon } from '../icons';
 import { notice, pageHead, settingRow, switchRow } from '../components';
-import { DEFAULT_EMBED, buildIframeCode, buildShareUrl, extractSource, type EmbedOptions } from '../../app/embed';
+import { DEFAULT_EMBED, buildIframeCode, buildMountCode, buildReactCode, buildShareUrl, buildWebComponentCode, extractSource, type EmbedOptions } from '../../app/embed';
 
 /**
  * Builds the iframe snippet a site owner pastes into their page, and previews it.
@@ -36,9 +36,35 @@ export function createSharePage(ctx: PageContext): PageInstance {
 
   const previewBox = el('div', { class: 'embed-preview' });
 
+  type Format = 'iframe' | 'component' | 'mount' | 'react';
+  let format: Format = 'iframe';
+  const formatTabs = el('div', { class: 'seg', role: 'tablist' });
+  for (const [id, label] of [
+    ['iframe', 'iframe'],
+    ['component', 'Web component'],
+    ['mount', 'JavaScript'],
+    ['react', 'React'],
+  ] as Array<[Format, string]>) {
+    const tab = el('button', { class: `seg__item${id === format ? ' is-active' : ''}`, type: 'button', text: label });
+    tab.dataset.format = id;
+    tab.addEventListener('click', () => {
+      format = id;
+      formatTabs.querySelectorAll('.seg__item').forEach((node) => node.classList.toggle('is-active', node === tab));
+      sync();
+    });
+    formatTabs.append(tab);
+  }
+
   const render = () => {
     const url = buildShareUrl(base, options);
-    iframeOut.value = buildIframeCode(url, options);
+    iframeOut.value =
+      format === 'iframe'
+        ? buildIframeCode(url, options)
+        : format === 'component'
+          ? buildWebComponentCode(url, options)
+          : format === 'mount'
+            ? buildMountCode(url, options)
+            : buildReactCode(url);
     linkOut.value = url;
 
     const missing = !options.src;
@@ -90,7 +116,8 @@ export function createSharePage(ctx: PageContext): PageInstance {
           }),
         ]),
       ]),
-      sectionCard('Embed code', 'Paste this where the player should appear.', [
+      sectionCard('Embed code', 'Paste this where the player should appear. Switch format for your stack.', [
+        formatTabs,
         iframeOut,
         el('div', { class: 'share-link-row' }, [
           el('span', { class: 'share-link-row__label', text: 'Player link' }),

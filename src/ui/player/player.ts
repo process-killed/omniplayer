@@ -685,7 +685,16 @@ class PlayerPage implements PageInstance, PlayerApi {
 
       this.subtitles.tick(current);
       if (!lightFrame) {
-        this.danmaku.tick(current);
+        const rememberEmbed = this.isEmbed ? this.options.embed : null;
+      if (rememberEmbed?.remember && Math.abs(current - this.lastRemembered) > 5) {
+        this.lastRemembered = current;
+        try {
+          localStorage.setItem(`omniplay:embed-pos:${rememberEmbed.src}`, String(Math.round(current)));
+        } catch {
+          /* ignore */
+        }
+      }
+      this.danmaku.tick(current);
         this.watchForStall(current);
         this.samplePressure(current);
       }
@@ -1777,6 +1786,8 @@ class PlayerPage implements PageInstance, PlayerApi {
   private governor!: ResourceGovernor;
   /** True on the low/TV profiles: half-rate UI work, capped danmaku. */
   private throttledLoop = false;
+  private lastRemembered = 0;
+  private playlistIndex = 0;
   private governorAt = 0;
 
   private applyDanmakuSettings(): void {
@@ -1863,6 +1874,22 @@ class PlayerPage implements PageInstance, PlayerApi {
       this.adjustmentsValue = { ...this.adjustmentsValue, aspect: embed.aspect as never };
       const inner = this.mediaWrap.firstElementChild as HTMLElement | null;
       if (inner) applyAspect(this.stage, inner, this.adjustmentsValue.aspect);
+    }
+
+    if (embed.chromeless) {
+      this.el.classList.add('is-chromeless');
+      this.el.dataset.chrome = 'hidden';
+      this.el.querySelectorAll('.pbar').forEach((node) => node.classList.add('hidden'));
+    }
+    if (!embed.branding) this.el.classList.add('is-unbranded');
+
+    if (embed.remember) {
+      try {
+        const saved = Number(localStorage.getItem(`omniplay:embed-pos:${embed.src}`) ?? '0');
+        if (saved > 5) embed.start = saved;
+      } catch {
+        /* ignore */
+      }
     }
 
     if (!embed.controls) {
@@ -2141,6 +2168,16 @@ class PlayerPage implements PageInstance, PlayerApi {
   private handleEnded(): void {
     if (this.endedHandled) return;
     this.endedHandled = true;
+
+    // Site-owner playlists: play the next URL from `playlist=`.
+    const embed = this.isEmbed ? this.options.embed : null;
+    if (embed?.playlist?.length && this.playlistIndex < embed.playlist.length) {
+      const nextUrl = embed.playlist[this.playlistIndex];
+      this.playlistIndex += 1;
+      const spec = this.ctx.session.specFromUrl(nextUrl, `Track ${this.playlistIndex + 1}`);
+      this.ctx.session.play(spec);
+      return;
+    }
     if (this.isEmbed) {
       const next = this.options.embed?.next;
       if (next) {

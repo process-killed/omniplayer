@@ -3134,3 +3134,33 @@ pre::-webkit-scrollbar,
   color: var(--txt-3);
   white-space: pre-wrap;
 }
+
+/* Segmented control used by the embed snippet tabs */
+.seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.seg__item {
+  border: 0;
+  background: transparent;
+  color: var(--txt-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.seg__item.is-active {
+  background: var(--accent);
+  color: #fff;
+}

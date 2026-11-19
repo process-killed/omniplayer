@@ -2149,3 +2149,14 @@ body.is-player-route .toasts {
   max-width: 100%;
   max-height: 100%;
 }
+
+/* Chromeless and unbranded embeds */
+.player.is-chromeless .pbar,
+.player.is-chromeless .player__center {
+  display: none !important;
+}
+
+.player.is-unbranded .pbar--top .player__title-block,
+.player.is-unbranded #engine-badge {
+  display: none !important;
+}

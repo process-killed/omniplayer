@@ -30,6 +30,14 @@ export interface EmbedOptions {
   download: boolean;
   /** Origins allowed to send postMessage commands; empty means "any parent". */
   origins: string[];
+  /** Extra URLs played after the current one ends (site-owner playlists). */
+  playlist: string[];
+  /** Hide every control; tap-to-play and gestures still work. */
+  chromeless: boolean;
+  /** Hide the engine badge and title bar. */
+  branding: boolean;
+  /** Remember the position per source in this browser and resume it. */
+  remember: boolean;
   start: number;
   autoplay: boolean;
   muted: boolean;
@@ -42,6 +50,10 @@ export interface EmbedOptions {
 }
 
 export const DEFAULT_EMBED: EmbedOptions = {
+  playlist: [],
+  chromeless: false,
+  branding: true,
+  remember: false,
   src: '',
   fallbacks: [],
   end: 0,
@@ -123,6 +135,14 @@ export function parseEmbedParams(params: Record<string, string>): EmbedOptions |
       .map((entry) => entry.trim())
       .filter(Boolean)
       .slice(0, 10),
+    playlist: (params.playlist ?? '')
+      .split(',')
+      .map((entry) => safeDecode(entry).trim())
+      .filter((entry) => /^https?:\/\//i.test(entry))
+      .slice(0, 20),
+    chromeless: truthy(params.chromeless ?? params.chrome, false),
+    branding: truthy(params.branding, true),
+    remember: truthy(params.remember, false),
     start: Number.isFinite(start) && start > 0 ? start : 0,
     autoplay: truthy(params.autoplay, false),
     muted: truthy(params.muted, false),
@@ -140,6 +160,10 @@ export function buildEmbedUrl(baseHref: string, options: EmbedOptions): string {
   const url = new URL(baseHref);
   const params = new URLSearchParams();
   params.set('src', options.src);
+  if (options.playlist.length) params.set('playlist', options.playlist.join(','));
+  if (options.chromeless) params.set('chromeless', '1');
+  if (!options.branding) params.set('branding', '0');
+  if (options.remember) params.set('remember', '1');
   if (options.start > 0) params.set('start', String(Math.round(options.start)));
   if (options.autoplay) params.set('autoplay', '1');
   if (options.muted) params.set('muted', '1');
@@ -180,6 +204,55 @@ export function buildIframeCode(embedUrl: string, options: EmbedOptions, size = 
     `  allowfullscreen`,
     `  referrerpolicy="no-referrer"`,
     `></iframe>`,
+  ].join('\n');
+}
+
+/** Web component snippet — no JS needed on the host page. */
+export function buildWebComponentCode(embedUrl: string, options: EmbedOptions): string {
+  const origin = new URL(embedUrl).origin;
+  return [
+    `<script type="module" src="${origin}/assets/main.js"></script>`,
+    `<omni-play src="${options.src}"${options.title ? ` title="${options.title.replace(/"/g, '&quot;')}"` : ''}${options.autoplay ? ' autoplay' : ''}${options.muted ? ' muted' : ''}${options.loop ? ' loop' : ''}></omni-play>`,
+  ].join('\n');
+}
+
+/** Imperative mount — gives the host a controller object. */
+export function buildMountCode(embedUrl: string, options: EmbedOptions): string {
+  const origin = new URL(embedUrl).origin;
+  const config = JSON.stringify(
+    {
+      src: options.src,
+      title: options.title || undefined,
+      autoplay: options.autoplay || undefined,
+      muted: options.muted || undefined,
+      start: options.start || undefined,
+    },
+    null,
+    2,
+  ).replace(/"([a-zA-Z]+)":/g, '$1:');
+  return [
+    `<script type="module" src="${origin}/assets/main.js"></script>`,
+    `<div id="player"></div>`,
+    `<script type="module">`,
+    `  const player = OmniPlay.mount('#player', ${config});`,
+    `  player.on('ended', () => console.log('finished'));`,
+    `</script>`,
+  ].join('\n');
+}
+
+/** React snippet for app developers. */
+export function buildReactCode(embedUrl: string): string {
+  return [
+    `export function Player({ src }: { src: string }) {`,
+    `  return (`,
+    `    <iframe`,
+    `      src={\`${embedUrl.split('?')[0]}?src=\${encodeURIComponent(src)}&autoplay=1&muted=1\`}`,
+    `      style={{ width: '100%', aspectRatio: '16 / 9', border: 0 }}`,
+    `      allow="autoplay; fullscreen; picture-in-picture"`,
+    `      allowFullScreen`,
+    `    />`,
+    `  );`,
+    `}`,
   ].join('\n');
 }
 
