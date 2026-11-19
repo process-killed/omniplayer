@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="440" viewBox="0 0 1100 440" role="img" aria-label="Playback engine selection">
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6d5efc"/><stop offset="1" stop-color="#8b7dff"/></linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#38bdf8"/></linearGradient>
+    <linearGradient id="c" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f472b6"/><stop offset="1" stop-color="#fb7185"/></linearGradient>
+    <linearGradient id="d" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#10b981"/></linearGradient>
+  </defs>
+  <rect width="1100" height="440" fill="#0a0b12"/>
+  <g font-family="Inter, Segoe UI, system-ui, sans-serif">
+    <text x="60" y="58" font-size="20" font-weight="700" fill="#eef1f8">One file, four engines — picked automatically</text>
+    <text x="60" y="84" font-size="13" fill="#7b849b">The player inspects headers and container bytes before it chooses, and falls through if an engine fails.</text>
+
+    <rect x="60" y="120" width="240" height="120" rx="16" fill="#141726" stroke="#2a3048"/>
+    <text x="84" y="156" font-size="13" font-weight="700" fill="#c9d0e4">Your file</text>
+    <text x="84" y="180" font-size="12" fill="#7b849b">MP4 · MKV · AVI · FLV</text>
+    <text x="84" y="200" font-size="12" fill="#7b849b">HLS · DASH · magnet</text>
+
+    <path d="M300 180h90" stroke="#3a4160" stroke-width="2" stroke-dasharray="6 6"/>
+
+    <rect x="400" y="104" width="290" height="60" rx="14" fill="url(#a)" fill-opacity="0.16" stroke="#6d5efc" stroke-opacity="0.6"/>
+    <text x="424" y="132" font-size="14" font-weight="700" fill="#d9d5ff">Native &lt;video&gt;</text>
+    <text x="424" y="152" font-size="12" fill="#9aa3bb">hardware decode · zero main-thread work</text>
+
+    <rect x="400" y="176" width="290" height="60" rx="14" fill="url(#b)" fill-opacity="0.14" stroke="#22d3ee" stroke-opacity="0.55"/>
+    <text x="424" y="204" font-size="14" font-weight="700" fill="#bff0fb">HLS.js / DASH.js</text>
+    <text x="424" y="224" font-size="12" fill="#9aa3bb">adaptive streaming over MSE</text>
+
+    <rect x="400" y="248" width="290" height="60" rx="14" fill="url(#c)" fill-opacity="0.14" stroke="#f472b6" stroke-opacity="0.55"/>
+    <text x="424" y="276" font-size="14" font-weight="700" fill="#ffd3e6">WebCodecs + mediabunny</text>
+    <text x="424" y="296" font-size="12" fill="#9aa3bb">MKV · HEVC · multi-audio · embedded subs</text>
+
+    <rect x="400" y="320" width="290" height="60" rx="14" fill="url(#d)" fill-opacity="0.14" stroke="#34d399" stroke-opacity="0.55"/>
+    <text x="424" y="348" font-size="14" font-weight="700" fill="#c8f7e4">Provider embed</text>
+    <text x="424" y="368" font-size="12" fill="#9aa3bb">YouTube · Vimeo · Twitch · Dailymotion</text>
+
+    <rect x="760" y="104" width="280" height="276" rx="16" fill="#101320" stroke="#2a3048"/>
+    <text x="786" y="140" font-size="13" font-weight="700" fill="#c9d0e4">Fallback chain</text>
+    <g font-size="12" fill="#8b94ad">
+      <text x="786" y="170">1 · preferred engine</text>
+      <text x="786" y="196">2 · next engine on failure</text>
+      <text x="786" y="222">3 · mirror source</text>
+      <text x="786" y="248">4 · CORS explanation</text>
+    </g>
+    <text x="786" y="292" font-size="12" fill="#6f7a93">Stall recovery keeps the timestamp,</text>
+    <text x="786" y="312" font-size="12" fill="#6f7a93">so a mirror switch is invisible.</text>
+    <rect x="786" y="334" width="228" height="30" rx="8" fill="#6d5efc" fill-opacity="0.16" stroke="#6d5efc" stroke-opacity="0.5"/>
+    <text x="900" y="354" font-size="12" font-weight="600" fill="#b9b2ff" text-anchor="middle">~1.2 s to first frame</text>
+  </g>
+</svg>

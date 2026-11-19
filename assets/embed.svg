@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="300" viewBox="0 0 1100 300" role="img" aria-label="Embed flow">
+  <rect width="1100" height="300" fill="#0a0b12"/>
+  <g font-family="Inter, Segoe UI, system-ui, sans-serif">
+    <text x="60" y="52" font-size="18" font-weight="700" fill="#eef1f8">Embed anywhere in one URL</text>
+    <rect x="60" y="80" width="980" height="54" rx="12" fill="#12141f" stroke="#2a3048"/>
+    <text x="84" y="114" font-size="14" fill="#a5f0fb" font-family="ui-monospace, monospace">https://your-host/#/embed?src=</text>
+    <text x="374" y="114" font-size="14" fill="#8b94ad" font-family="ui-monospace, monospace">ENCODED_URL</text>
+    <text x="506" y="114" font-size="14" fill="#b9b2ff" font-family="ui-monospace, monospace">&amp;autoplay=1&amp;muted=1&amp;origins=</text>
+    <text x="800" y="114" font-size="14" fill="#8b94ad" font-family="ui-monospace, monospace">https://yoursite.com</text>
+
+    <g font-size="12" fill="#8b94ad">
+      <text x="60" y="176" font-weight="700" fill="#c9d0e4">24 parameters</text>
+      <text x="60" y="200">playlist · chromeless · branding</text>
+      <text x="60" y="220">remember · start/t · end · poster</text>
+      <text x="60" y="240">audio · subtitle · quality · aspect</text>
+
+      <text x="400" y="176" font-weight="700" fill="#c9d0e4">4 integrations</text>
+      <text x="400" y="200">iframe · &lt;omni-play&gt;</text>
+      <text x="400" y="220">OmniPlay.mount() · postMessage</text>
+      <text x="400" y="240">14 commands · 8 events</text>
+
+      <text x="740" y="176" font-weight="700" fill="#c9d0e4">Built for hosts</text>
+      <text x="740" y="200">origin-restricted commands</text>
+      <text x="740" y="220">neutral error card + closed event</text>
+      <text x="740" y="240">never reveals the app shell</text>
+    </g>
+  </g>
+</svg>
