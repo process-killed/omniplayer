@@ -3164,3 +3164,206 @@ pre::-webkit-scrollbar,
   background: var(--accent);
   color: #fff;
 }
+
+/* ---------------------------------------------------------- developer docs */
+
+.dev-block {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.dev-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--txt-3);
+  font-weight: 600;
+}
+
+.dev-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--txt-2);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dev-copy:hover {
+  border-color: var(--accent);
+  color: var(--txt);
+}
+
+.dev-code {
+  margin: 0;
+  padding: 12px 14px;
+  max-height: 320px;
+  overflow: auto;
+  font: 12px/1.6 var(--font-mono);
+  color: #cdd5e6;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.dev-hint {
+  margin: 0;
+  padding: 9px 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--txt-3);
+  line-height: 1.55;
+}
+
+.dev-status {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--txt-3);
+  font-family: var(--font-mono);
+  min-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.dev-playground {
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16 / 9;
+}
+
+.dev-playground iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.dev-table {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  font-size: 12.5px;
+}
+
+.dev-table__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.1fr) 90px minmax(200px, 2.4fr) minmax(140px, 1.6fr);
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  align-items: start;
+}
+
+.dev-table--two .dev-table__row {
+  grid-template-columns: minmax(110px, 1fr) minmax(90px, 0.7fr) minmax(200px, 2.2fr);
+}
+
+.dev-table--two .dev-table__row--head {
+  grid-template-columns: minmax(110px, 1fr) minmax(90px, 0.7fr) minmax(200px, 2.2fr);
+}
+
+.dev-table__row:first-child {
+  border-top: 0;
+}
+
+.dev-table__row--head {
+  background: var(--surface-2);
+  font-weight: 600;
+  color: var(--txt-2);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dev-table code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.dev-h3 {
+  margin: 18px 0 4px;
+  font-size: 13px;
+  color: var(--txt-2);
+}
+
+.dev-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--txt-2);
+}
+
+.dev-list b {
+  color: var(--txt);
+}
+
+.dev-list code {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .dev-table__row,
+  .dev-table--two .dev-table__row,
+  .dev-table--two .dev-table__row--head {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .dev-table__row--head {
+    display: none;
+  }
+
+  .dev-code {
+    font-size: 11px;
+  }
+}
+
+/* Calm fallback shown when the demo stream cannot load */
+.dev-fallback {
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  height: 100%;
+  padding: 24px;
+  text-align: center;
+  background: radial-gradient(120% 120% at 50% 0%, #14161f, #05060a 70%);
+}
+
+.dev-fallback b {
+  font-size: 14px;
+  color: var(--txt);
+}
+
+.dev-fallback p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--txt-3);
+  max-width: 420px;
+  line-height: 1.6;
+}
+
+.dev-fallback button {
+  justify-self: center;
+  margin-top: 6px;
+}
