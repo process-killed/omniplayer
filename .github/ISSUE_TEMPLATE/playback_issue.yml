@@ -1,0 +1,89 @@
+name: 🎬 Playback issue
+description: A file or link that will not play, or plays wrongly.
+title: "[Playback]: "
+labels: ["playback", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Playback is the heart of this project, so this template asks for detail.
+        **Diagnostics → Copy** produces most of what is needed.
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: What goes wrong
+      options:
+        - Nothing happens — the player stays on the loading state
+        - Video plays, audio is silent
+        - Audio plays, video is black
+        - "Error: this host blocks the browser from reading the file (CORS)"
+        - "Error: the container cannot be opened here"
+        - Subtitles do not appear
+        - Subtitles appear but are out of sync
+        - Wrong audio track or no track switching
+        - Stutters, freezes or drops frames
+        - Seeking breaks playback
+        - Live stream never starts
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Source URL or file
+      description: A public URL, or describe the local file. Do not paste private signed links.
+      placeholder: https://example.com/video.mkv
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics JSON
+      description: From the Diagnostics page — engine, container, codecs, network and CORS result.
+      render: json
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Engine the player chose
+      options:
+        - Native
+        - HLS.js
+        - DASH.js
+        - WebCodecs (mediabunny)
+        - Provider embed
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: works_elsewhere
+    attributes:
+      label: Does it play in another player?
+      description: VLC or MPV locally is the most useful comparison.
+      options:
+        - Yes, plays fine in VLC/MPV
+        - Yes, plays in another browser
+        - No, fails everywhere
+        - Have not tried
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 131 on Android 14
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console output
+      description: Open DevTools → Console, reproduce, paste the errors.
+      render: shell

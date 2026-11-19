@@ -1,0 +1,54 @@
+name: ✨ Feature request
+description: Suggest a capability or an improvement.
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the **problem**, not the implementation. The best requests explain what
+        you were trying to do and what stopped you.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      placeholder: I watch a series as 12 separate files and re-open each one by hand.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like to happen
+      placeholder: A queue that plays the next file automatically.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you tried
+      description: Workarounds, other players, existing settings that nearly do it.
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: How much does this matter?
+      options:
+        - Nice to have
+        - Would use it weekly
+        - Blocks me from using OmniPlay
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Project constraints
+      description: OmniPlay has no backend and never uploads media.
+      options:
+        - label: This can work fully client-side, with no server
+          required: true
+        - label: I understand it must not slow down normal playback when unused
+          required: true

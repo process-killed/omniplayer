@@ -1,0 +1,100 @@
+name: 🐛 Bug report
+description: Something behaves wrongly — UI, playback controls, downloads, layout.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. A precise one gets fixed; a vague one usually stalls.
+        **Playback failures have their own template** — please use that instead.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: I reproduced this on the latest `main` or latest release
+          required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The behaviour you saw, in one or two sentences.
+      placeholder: Pressing pause while a subtitle is active jumps back two seconds.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      placeholder: Playback should pause in place.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - Player controls
+        - Subtitles
+        - Audio
+        - Downloads
+        - Torrents
+        - Embed / share
+        - Layout / mobile
+        - Settings
+        - Other
+
+  - type: input
+    id: version
+    attributes:
+      label: OmniPlay version
+      description: Shown in About.
+      placeholder: "1.24.0"
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 131 on Windows 11 / Safari 18 on iPhone 15
+    validations:
+      required: true
+
+  - type: input
+    id: viewport
+    attributes:
+      label: Viewport size (layout issues only)
+      placeholder: "390 × 844"
+
+  - type: textarea
+    id: media
+    attributes:
+      label: Media details (if relevant)
+      description: Container, codecs and size — the Diagnostics page copies this.
+      render: json
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: Screenshots, recordings, console output
+      description: Drag files here. Console errors are gold.
