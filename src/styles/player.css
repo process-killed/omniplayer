@@ -2160,3 +2160,41 @@ body.is-player-route .toasts {
 .player.is-unbranded #engine-badge {
   display: none !important;
 }
+
+/* Neutral end/error card used inside third-party embeds */
+.error-card.embed-ended {
+  max-width: 420px;
+  text-align: center;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+
+.embed-ended__poster {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 12px;
+  opacity: 0.85;
+}
+
+.error-card.embed-ended h2 {
+  font-size: 16px;
+  margin: 4px 0 0;
+}
+
+.error-card.embed-ended p {
+  margin: 0;
+  color: var(--p-dim, rgba(247, 248, 252, 0.62));
+  font-size: 13px;
+}
+
+.player.is-embed-ended .pbar,
+.player.is-embed-ended .player__center {
+  display: none !important;
+}
+
+/* The neutral card keeps a dark, contained look so it never reads as an app. */
+.player__error.is-neutral {
+  background: #05060a;
+}

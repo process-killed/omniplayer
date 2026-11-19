@@ -1037,7 +1037,10 @@ class PlayerPage implements PageInstance, PlayerApi {
       ['bookmarkPlus', 'Bookmark this moment', () => this.addBookmark(formatTime(this.pm.currentTime))],
       ['scan', 'Save frame as PNG', () => void this.screenshot()],
       ['timer', 'Sleep timer', () => this.openSleepMenu()],
-      ['settings', 'Player settings', () => this.ctx.router.navigate('settings', { section: 'playback' })],
+      ...(this.isEmbed
+        ? []
+        : ([['settings', 'Player settings', () => this.ctx.router.navigate('settings', { section: 'playback' })]] as Array<[string, string, () => void]>)),
+
     ];
     for (const [iconName, text, handler] of entries) {
       const item = el('button', { class: 'menu-item', type: 'button' });
@@ -2656,7 +2659,18 @@ class PlayerPage implements PageInstance, PlayerApi {
     closeButton.innerHTML = icon('x', 18);
     closeButton.addEventListener('click', () => {
       this.hideError();
+      if (this.isEmbed) {
+        // Tell the host page and stay neutral — never load the app shell here.
+        window.parent?.postMessage({ omniplay: 'closed', reason: info.code }, '*');
+        this.showEmbedEnded('This video could not be played on this site.');
+        return;
+      }
       this.exit();
+    });
+
+    const openSourceButton = el('button', { class: 'btn btn--sm', html: `${icon('externalLink', 15)} Open source` });
+    openSourceButton.addEventListener('click', () => {
+      if (this.media?.url) window.open(this.media.url, '_blank', 'noopener');
     });
 
     const card = el('div', { class: 'error-card' });
@@ -2667,13 +2681,14 @@ class PlayerPage implements PageInstance, PlayerApi {
       ${info.detail ? `<p class="mono text-xs" style="margin-top:10px;color:var(--txt-3);word-break:break-word">${esc(info.detail)}</p>` : ''}
       ${info.suggestions.length ? `<ul>${info.suggestions.map((suggestion) => `<li>${esc(suggestion)}</li>`).join('')}</ul>` : ''}
     `;
-    const actions = el('div', { class: 'error-card__actions' }, [
-      otherButton,
-      ...corsActions,
-      retryButton,
-      diagnosticsButton,
-      copyButton,
-    ]);
+    const actions = el('div', { class: 'error-card__actions' }, this.isEmbed
+      ? [
+          // Keep only what makes sense inside someone else's page.
+          retryButton,
+          ...corsActions.filter((node) => !(node as HTMLElement).textContent?.includes('proxy')),
+          openSourceButton,
+        ]
+      : [otherButton, ...corsActions, retryButton, diagnosticsButton, copyButton]);
     card.append(actions, closeButton);
     this.errorBox.innerHTML = '';
     this.errorBox.append(card);
@@ -2690,7 +2705,31 @@ class PlayerPage implements PageInstance, PlayerApi {
   private exit(): void {
     this.saveHistory(false);
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    // Inside a third-party page, navigating to the app's home would drop the whole
+    // OmniPlayer UI into someone else's site — show a neutral end card instead.
+    if (this.isEmbed) {
+      this.showEmbedEnded();
+      return;
+    }
     this.ctx.router.navigate('home');
+  }
+
+  /** Neutral "nothing more to show" screen for embedded players. */
+  private showEmbedEnded(reason?: string): void {
+    this.hideError();
+    this.pm.pause();
+    this.el.classList.add('is-embed-ended');
+    const poster = this.options.embed?.poster;
+    const label = this.options.embed?.title || this.media?.name || 'This video';
+    this.errorBox.innerHTML = `
+      <div class="error-card embed-ended">
+        ${poster ? `<img class="embed-ended__poster" src="${esc(poster)}" alt="" />` : ''}
+        <h2>${esc(label)}</h2>
+        <p>${esc(reason ?? 'Playback stopped.')}</p>
+        <p class="muted text-xs">Embedded player · provided by the site you are on</p>
+      </div>`;
+    this.errorBox.classList.add('is-visible', 'is-neutral');
+    this.showChrome(true);
   }
 
   private shiftHeld = false;
