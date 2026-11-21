@@ -135,6 +135,7 @@ export const DEFAULT_SETTINGS: Settings = {
   danmakuSpeed: 1,
   danmakuArea: 0.5,
   torrentGateway: '',
+  thumbnails: true,
   ffmpegPlayback: false,
   ffmpegCoreUrl: '',
   torrentProvider: 'webtorrent',

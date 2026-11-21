@@ -359,6 +359,8 @@ export interface Settings {
   torrentGateway: string;
   /** How magnets play: auto (gateway if set, else webtor.io), or forced. */
   /** Offer FFmpeg-assisted playback when a file will not play natively. */
+  /** Show scene previews while scrubbing the timeline. */
+  thumbnails: boolean;
   ffmpegPlayback: boolean;
   /** Optional self-hosted (smaller) FFmpeg core directory. */
   ffmpegCoreUrl: string;

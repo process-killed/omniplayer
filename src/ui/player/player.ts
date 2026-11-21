@@ -17,6 +17,7 @@ import { DanmakuEngine, parseDanmaku, randomDanmakuColor } from '../../danmaku/e
 import { rankSources, recordAttempt, rememberSource, preferredSource } from '../../core/sourceHealth';
 import { loadPlaybackState, savePlaybackState } from '../../storage/playbackState';
 import { fixForPlayback } from '../../media/ffmpegPlayback';
+import { Thumbnailer } from '../../media/thumbnailer';
 import { ResourceGovernor } from '../../core/resourceGovernor';
 import { budgetsFor, deviceReport } from '../../core/deviceProfile';
 import { GestureManager } from '../../gestures/gestures';
@@ -82,6 +83,10 @@ class PlayerPage implements PageInstance, PlayerApi {
   private readonly hudLeft: HTMLElement;
   private readonly hudRight: HTMLElement;
   private readonly seekPreview: HTMLElement;
+  private thumbnails: Thumbnailer | null = null;
+  private knownDuration = 0;
+  private lastHoverTime = 0;
+  private previewThumb: HTMLImageElement | null = null;
   private readonly volumeInput: HTMLInputElement;
   private readonly centerPlay: HTMLElement;
   private readonly moreButton: HTMLElement;
@@ -597,6 +602,12 @@ class PlayerPage implements PageInstance, PlayerApi {
         if (ended) this.handleEnded();
         else this.endedHandled = false;
       }),
+      this.pm.on('duration', ({ duration }) => {
+        if (duration && Math.abs(duration - this.knownDuration) > 0.5) {
+          this.knownDuration = duration;
+          if (!this.thumbnails) this.setupThumbnails();
+        }
+      }),
       this.pm.on('meta', ({ live }) => {
         this.liveBadge.classList.toggle('hidden', !live);
         if (live) {
@@ -636,7 +647,13 @@ class PlayerPage implements PageInstance, PlayerApi {
         this.chaptersValue = chapters;
         this.renderChapters();
       }),
-      this.pm.on('time', () => this.maybeSaveHistory()),
+      this.pm.on('time', () => {
+        this.maybeSaveHistory();
+        // Build scene previews as soon as playback has a duration. The manager's
+        // time event fires regardless of UI throttling, so this is the reliable
+        // hook — a throttled render loop may never reach the timeline update.
+        if (!this.thumbnails && this.pm.currentTime > 0.5) this.ensureThumbnails();
+      }),
     );
   }
 
@@ -773,6 +790,11 @@ class PlayerPage implements PageInstance, PlayerApi {
   }
 
   private updateTimeline(current: number, duration: number): void {
+    // First time we learn a real duration, build the scene-preview engine.
+    if (duration && Math.abs(duration - this.knownDuration) > 0.5) {
+      this.knownDuration = duration;
+      if (!this.thumbnails) this.setupThumbnails();
+    }
     if (this.draggedTimeline) return;
     const percent = duration > 0 && Number.isFinite(duration) ? clamp((current / duration) * 100, 0, 100) : 0;
     this.tlPlayed.style.width = `${percent}%`;
@@ -891,12 +913,50 @@ class PlayerPage implements PageInstance, PlayerApi {
   }
 
   private showSeekPreview(target: number, delta: number): void {
+    this.ensureThumbnails();
     this.seekPreview.classList.add('is-visible');
-    this.seekPreview.innerHTML = `${formatTime(target)}<small>${delta >= 0 ? '+' : '−'}${formatTime(Math.abs(delta))}</small>`;
+    if (!this.previewThumb) {
+      this.previewThumb = el('img', { class: 'seek-preview__thumb', alt: '' });
+      this.previewThumb.addEventListener('load', () => this.seekPreview.classList.add('has-thumb'));
+      this.previewThumb.addEventListener('error', () => this.seekPreview.classList.remove('has-thumb'));
+      this.seekPreview.append(this.previewThumb);
+    }
+    const time = el('span', { class: 'seek-preview__time' });
+    time.innerHTML = `${formatTime(target)}<small>${delta >= 0 ? '+' : '−'}${formatTime(Math.abs(delta))}</small>`;
+    this.seekPreview.querySelector('.seek-preview__time')?.replaceWith(time) ?? this.seekPreview.prepend(time);
+
+    // A cached frame paints instantly; otherwise ask and repaint when it lands.
+    this.thumbnails?.prefetch(target, 2);
+    const cached = this.thumbnails?.peek(target);
+    if (cached && this.previewThumb) {
+      this.previewThumb.src = cached;
+      this.seekPreview.classList.add('has-thumb');
+    } else if (this.thumbnails) {
+      void this.thumbnails.get(target).then((url) => {
+        if (!url || !this.previewThumb || !this.seekPreview.classList.contains('is-visible')) return;
+        this.previewThumb.src = url;
+      });
+    }
   }
 
   private hideSeekPreview(): void {
     this.seekPreview.classList.remove('is-visible');
+  }
+
+  /** Scene previews: one decoder, bounded cache, silent failure. */
+  private setupThumbnails(): void {
+    this.thumbnails?.destroy();
+    this.thumbnails = null;
+    const media = this.media ?? this.store.current;
+    const duration = this.knownDuration;
+    if (!media?.url) return;
+    if (this.store.settings.thumbnails === false) return;
+    const profile = this.store.settings.deviceProfile === 'auto'
+      ? deviceReport().profile
+      : this.store.settings.deviceProfile;
+    if (!Thumbnailer.supported(duration, media.url, profile)) return;
+    this.thumbnails = new Thumbnailer({ interval: duration > 3600 ? 10 : 5 });
+    this.thumbnails.attach(media.url, duration, profile);
   }
 
   private showHud(host: HTMLElement, iconName: string, text: string, fill?: number): void {
@@ -2113,13 +2173,31 @@ class PlayerPage implements PageInstance, PlayerApi {
     const token = ++this.storyboardToken;
     const duration = this.pm.duration;
     if (!duration || !Number.isFinite(duration) || duration < 10) return;
-    const count = this.store.settings.thumbnailQuality === 'high' ? 20 : this.store.settings.thumbnailQuality === 'low' ? 8 : 12;
+    // Density follows the length: a 2-hour film needs more samples than a 3-minute
+    // clip for the same scrub accuracy. Capped so a phone never decodes 200 frames.
+    const byDuration = Math.round(duration / 8);
+    const ceiling = this.store.settings.thumbnailQuality === 'high' ? 60 : this.store.settings.thumbnailQuality === 'low' ? 10 : 32;
+    const count = clamp(byDuration, 8, ceiling);
     const frames = await thumbnails.getStoryboard(media, duration, count);
     if (token !== this.storyboardToken) return;
     this.storyboard = frames;
   }
 
+  private ensureThumbnails(): void {
+    if (this.thumbnails) return;
+    // The manager's duration can lag behind the element on some engines, and a
+    // throttled UI loop may not have run yet — fall back to the element itself.
+    const element = this.el.querySelector('video');
+    const duration =
+      (Number.isFinite(this.pm.duration) && this.pm.duration > 0 ? this.pm.duration : 0) ||
+      (element && Number.isFinite(element.duration) && element.duration > 0 ? element.duration : 0);
+    if (!duration) return;
+    this.knownDuration = duration;
+    this.setupThumbnails();
+  }
+
   private updateHover(event: PointerEvent): void {
+    this.ensureThumbnails();
     const rect = this.tl.getBoundingClientRect();
     const duration = this.pm.duration;
     if (!duration || !Number.isFinite(duration)) return;
@@ -2128,15 +2206,42 @@ class PlayerPage implements PageInstance, PlayerApi {
     this.tlHover.classList.add('is-visible');
     const left = clamp(event.clientX - rect.left, 90, rect.width - 90);
     this.tlHover.style.left = `${left}px`;
+    this.lastHoverTime = time;
     const chapter = this.chapterAt(time);
     this.tlHoverLabel.innerHTML = `${formatTime(time)}${chapter ? ` · <span class="tl__tooltip-chapter">${esc(chapter.title)}</span>` : ''}`;
     if (this.storyboard.length) {
       const frame = this.storyboard.reduce((best, item) => (Math.abs(item.time - time) < Math.abs(best.time - time) ? item : best), this.storyboard[0]);
       this.tlHoverImg.src = frame.dataUrl;
       this.tlHoverImg.style.display = 'block';
-    } else {
-      this.tlHoverImg.style.display = 'none';
+      return;
     }
+
+    // No storyboard yet (or it was skipped on this device): ask the lazy
+    // thumbnailer for exactly this second, and prefetch its neighbours so the
+    // next hover is instant.
+    const thumbnails = this.thumbnails;
+    if (!thumbnails) {
+      this.tlHoverImg.style.display = 'none';
+      return;
+    }
+    const cached = thumbnails.peek(time);
+    if (cached) {
+      this.tlHoverImg.src = cached;
+      this.tlHoverImg.style.display = 'block';
+      thumbnails.prefetch(time, 2);
+      return;
+    }
+    thumbnails.prefetch(time, 2);
+    const requested = time;
+    void thumbnails.get(time).then((url) => {
+      if (!url || !this.tlHover.classList.contains('is-visible')) return;
+      // Only paint if the pointer is still near the frame we asked for.
+      const rect = this.tl.getBoundingClientRect();
+      if (!rect.width) return;
+      if (Math.abs(this.lastHoverTime - requested) > 0.75) return;
+      this.tlHoverImg.src = url;
+      this.tlHoverImg.style.display = 'block';
+    });
   }
 
   private seekFromPointer(event: PointerEvent): void {
@@ -2852,6 +2957,9 @@ class PlayerPage implements PageInstance, PlayerApi {
     }
     this.unsubs = [];
     this.ffmpegAbort?.abort();
+    const thumbnails: Thumbnailer | null = this.thumbnails;
+    thumbnails?.destroy();
+    this.thumbnails = null;
     document.removeEventListener('fullscreenchange', this.onFullscreenChange);
     document.removeEventListener('webkitfullscreenchange', this.onFullscreenChange);
     document.body.classList.remove('is-playing');

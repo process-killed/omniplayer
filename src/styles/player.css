@@ -360,6 +360,32 @@ body.is-player-route .toasts {
   transition: opacity 140ms, transform 200ms var(--chrome-ease);
 }
 
+.seek-preview__thumb {
+  display: block;
+  width: 168px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.seek-preview.has-thumb .seek-preview__thumb {
+  opacity: 1;
+}
+
+.seek-preview__time {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* No frame available: stay a compact clock pill, never an empty box. */
+.seek-preview:not(.has-thumb) .seek-preview__thumb {
+  display: none;
+}
+
 .seek-preview.is-visible {
   opacity: 1;
   transform: none;
