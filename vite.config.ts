@@ -67,8 +67,32 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
+// The Android/Windows share sheet posts files here. Park them in a cache and
+// redirect, so the app reads them back through the normal file path.
 self.addEventListener('fetch', (event) => {
   const request = event.request;
+  const url = new URL(request.url);
+
+  if (request.method === 'POST' && url.pathname === '/share-target') {
+    event.respondWith((async () => {
+      try {
+        const form = await request.formData();
+        const cache = await caches.open('omniplay-share');
+        const files = [];
+        form.forEach((value, key) => { if (value instanceof File && value.size > 0) files.push(value); });
+        if (files.length === 1) {
+          await cache.put('./__shared-files', new Response(files[0], { headers: { 'content-type': files[0].type || 'application/octet-stream' } }));
+        } else if (files.length > 1) {
+          await cache.put('./__shared-files', new Response(form, { headers: { 'content-type': 'multipart/form-data' } }));
+        }
+      } catch (_) {
+        /* fall through to the redirect; the app will report nothing shared */
+      }
+      return Response.redirect('./?shared=1', 303);
+    })());
+    return;
+  }
+
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;

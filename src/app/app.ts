@@ -79,8 +79,8 @@ const MOBILE_TABS: Array<[RouteName, string, string]> = [
 
 /** Application shell: navigation, page mounting and global shortcuts. */
 export class App {
-  private readonly router = new Router();
-  private readonly session: Session;
+  readonly router = new Router();
+  readonly session: Session;
   private readonly ctx: PageContext;
   private readonly shell: HTMLElement;
   private readonly pageHost: HTMLElement;

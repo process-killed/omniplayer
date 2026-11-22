@@ -2,6 +2,7 @@ import type { PageContext, PageInstance } from './types';
 import { el, esc, openModal, toast, downloadFile } from '../dom';
 import { icon } from '../icons';
 import { notice, pageHead, rangeControl, selectControl, settingRow, switchRow, textField } from '../components';
+import { platformReport } from '../../app/intake';
 import { deviceReport } from '../../core/deviceProfile';
 import { ACCENT_CHOICES, DEFAULT_KEYBINDINGS, EQ_PRESETS, exportSettings, importSettings, KEY_ACTION_LABELS } from '../../storage/settings';
 import { library } from '../../storage/library';
@@ -250,6 +251,29 @@ export function createSettingsPage(ctx: PageContext): PageInstance {
             settingRow('Version', 'OmniPlay 1.24.0', updateButton),
             el('div', { class: 'notice notice--info', html: `${icon('info', 16)}<span>When an update is ready you get a “Reload” prompt — playback is never interrupted by a forced refresh.</span>` }),
           ]),
+          sectionCard(
+            'Open with OmniPlay',
+            'Hand video and audio files straight to the app, without opening it first.',
+            [
+              el('div', { class: 'stack', style: { gap: '10px' } }, (() => {
+                const report = platformReport();
+                const rows: Array<[string, boolean, string]> = [
+                  ['“Open with” for video files', report.fileHandlers && report.standalone, report.fileHandlers ? 'Right-click a video → Open with → OmniPlay (Windows), or tap a file in your file manager (Android).' : 'This browser cannot register file types. Use drag-and-drop or the file picker.'],
+                  ['Share files to OmniPlay', report.shareTarget && report.standalone, report.shareTarget ? 'Share a video from Gallery, Files or WhatsApp and pick OmniPlay.' : 'iOS Safari has no share target — use the file picker instead.'],
+                  ['Drag & drop onto the window', true, 'Works on every desktop browser, no installation needed.'],
+                ];
+                return rows.map(([label, ok, detail]) => {
+                  const row = el('div', { class: 'p-note' });
+                  row.innerHTML = `<b>${ok ? '✓' : '—'} ${label}</b><span class="muted">${detail}</span>`;
+                  return row;
+                });
+              })()),
+              notice(
+                'File associations and the share sheet only work after installing the app — a website cannot claim file types. iOS has no equivalent to either; that is a platform limit, not a missing feature.',
+                'info',
+              ),
+            ],
+          ),
           sectionCard('Platform notes', 'What installation means on each platform.', [
             el('div', { class: 'stack', style: { gap: '10px' } }, [
               el('div', { class: 'p-note', text: 'Chrome / Edge (desktop & Android): install from the address bar or the button above. Opens in a standalone window with the media keys working.' }),

@@ -27,7 +27,7 @@ function applyEmbedQuery(): void {
 function exposeApi(): void {
   void import('./app/embedApi').then((api) => {
     (window as unknown as { OmniPlay: unknown }).OmniPlay = {
-      version: '1.22.0',
+      version: '1.24.0',
       protocolVersion: api.PROTOCOL_VERSION,
       mount: api.mount,
       buildEmbedSrc: api.buildEmbedSrc,
@@ -65,7 +65,7 @@ async function bootstrap(): Promise<void> {
     if (changed.includes('logLevel')) setLogLevel(store.settings.logLevel);
   });
 
-  new App(mount);
+  const app = new App(mount);
 
   // iOS unlocks Web Audio only from a gesture; do it on the first interaction.
   const unlock = () => {
@@ -76,9 +76,15 @@ async function bootstrap(): Promise<void> {
   window.addEventListener('pointerdown', unlock, { once: true });
   window.addEventListener('keydown', unlock, { once: true });
 
-  // Never let a stray drag navigate away from the app.
-  window.addEventListener('dragover', (event) => event.preventDefault());
-  window.addEventListener('drop', (event) => event.preventDefault());
+  // Files can arrive from outside: the OS "open with", the Android share sheet,
+  // or a drag onto the window. All three land in the same file path.
+  const intake = await import('./app/intake');
+  intake.installLaunchQueue(app.session, app.router);
+  intake.installDropZone(app.session, app.router);
+  if (new URLSearchParams(window.location.search).has('shared')) {
+    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+    void intake.consumeSharedFiles(app.session, app.router);
+  }
 
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason as { message?: string } | undefined;

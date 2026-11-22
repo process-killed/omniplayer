@@ -1,5 +1,5 @@
 {
-  "name": "OmniPlay \u2014 Universal Media Player",
+  "name": "OmniPlay — Universal Media Player",
   "short_name": "OmniPlay",
   "description": "Private, universal browser media player: local files, direct links, HLS, DASH, multi-audio and styled ASS subtitles. Everything plays on your device.",
   "start_url": "/",
@@ -106,11 +106,29 @@
           "sizes": "192x192"
         }
       ]
+    },
+    {
+      "name": "Downloads",
+      "short_name": "Downloads",
+      "description": "Open the download queue",
+      "url": "./#/downloads"
+    },
+    {
+      "name": "Media tools",
+      "short_name": "Tools",
+      "description": "Convert, remux or extract with FFmpeg",
+      "url": "./#/tools"
+    },
+    {
+      "name": "Settings",
+      "short_name": "Settings",
+      "description": "Player and network settings",
+      "url": "./#/settings"
     }
   ],
   "file_handlers": [
     {
-      "action": "./#/open",
+      "action": "./#/player",
       "accept": {
         "video/mp4": [
           ".mp4",
@@ -128,17 +146,67 @@
         "video/x-msvideo": [
           ".avi"
         ],
+        "video/x-flv": [
+          ".flv"
+        ],
         "video/mp2t": [
           ".ts",
           ".m2ts"
         ],
+        "video/mpeg": [
+          ".mpg",
+          ".mpeg"
+        ],
         "audio/mpeg": [
           ".mp3"
         ],
+        "audio/mp4": [
+          ".m4a",
+          ".aac"
+        ],
         "audio/flac": [
           ".flac"
+        ],
+        "audio/ogg": [
+          ".ogg",
+          ".opus"
+        ],
+        "audio/wav": [
+          ".wav"
         ]
       }
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "media",
+          "accept": [
+            "video/*",
+            "audio/*",
+            ".mkv",
+            ".avi",
+            ".flv"
+          ]
+        }
+      ]
+    }
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+omniplay",
+      "url": "./#/player?src=%s"
+    }
+  ],
+  "related_applications": [],
+  "edge_side_panel": {
+    "preferred_width": 480
+  }
 }
