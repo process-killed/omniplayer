@@ -18,6 +18,7 @@ import { rankSources, recordAttempt, rememberSource, preferredSource } from '../
 import { loadPlaybackState, savePlaybackState } from '../../storage/playbackState';
 import { fixForPlayback } from '../../media/ffmpegPlayback';
 import { Thumbnailer } from '../../media/thumbnailer';
+import { rafThrottle, whenIdle } from '../../utils/scheduling';
 import { ResourceGovernor } from '../../core/resourceGovernor';
 import { budgetsFor, deviceReport } from '../../core/deviceProfile';
 import { GestureManager } from '../../gestures/gestures';
@@ -379,7 +380,7 @@ class PlayerPage implements PageInstance, PlayerApi {
       this.applyAudioSettings();
       this.applyPicture();
       this.requestWakeLock();
-      this.generateStoryboard();
+      this.scheduleStoryboard();
       if (this.pm.pendingNotices.length) {
         this.pm.pendingNotices.forEach((notice) => toast(notice, 'info'));
       }
@@ -494,10 +495,13 @@ class PlayerPage implements PageInstance, PlayerApi {
       this.seekFromPointer(event);
       this.showChrome();
     });
-    this.tl.addEventListener('pointermove', (event) => {
+    // pointermove fires far faster than the screen refreshes; doing a layout
+    // read plus a storyboard search on every event was a large INP cost.
+    const onTimelineMove = rafThrottle((event: PointerEvent) => {
       this.updateHover(event);
       if (this.draggedTimeline) this.seekFromPointer(event);
     });
+    this.tl.addEventListener('pointermove', onTimelineMove, { passive: true });
     this.tl.addEventListener('pointerup', (event) => {
       this.draggedTimeline = false;
       this.tl.classList.remove('is-dragging');
@@ -524,9 +528,10 @@ class PlayerPage implements PageInstance, PlayerApi {
       this.el.querySelector(selector)?.addEventListener('pointermove', () => this.showChrome(true));
     }
 
-    this.el.addEventListener('pointermove', (event) => {
+    const revealChrome = rafThrottle((event: PointerEvent) => {
       if (event.pointerType === 'mouse') this.showChrome();
     });
+    this.el.addEventListener('pointermove', revealChrome, { passive: true });
     this.el.addEventListener('keydown', (event) => {
       if (isTypingTarget(event.target)) return;
       this.showChrome();
@@ -622,7 +627,7 @@ class PlayerPage implements PageInstance, PlayerApi {
       this.pm.on('probe', () => {
         this.updateTitle();
         this.refreshPanel();
-        this.generateStoryboard();
+        this.scheduleStoryboard();
         void this.scanEmbeddedSubtitles();
       }),
       this.pm.on('tracks', ({ tracks }) => {
@@ -2163,6 +2168,11 @@ class PlayerPage implements PageInstance, PlayerApi {
     }
   }
 
+  /** Deferred so opening a file is not blocked by frame extraction. */
+  private scheduleStoryboard(): void {
+    whenIdle(() => void this.generateStoryboard());
+  }
+
   private async generateStoryboard(): Promise<void> {
     const media = this.media;
     if (!media || !this.store.settings.thumbnailPreviews) return;
@@ -2210,7 +2220,7 @@ class PlayerPage implements PageInstance, PlayerApi {
     const chapter = this.chapterAt(time);
     this.tlHoverLabel.innerHTML = `${formatTime(time)}${chapter ? ` · <span class="tl__tooltip-chapter">${esc(chapter.title)}</span>` : ''}`;
     if (this.storyboard.length) {
-      const frame = this.storyboard.reduce((best, item) => (Math.abs(item.time - time) < Math.abs(best.time - time) ? item : best), this.storyboard[0]);
+      const frame = this.nearestFrame(time);
       this.tlHoverImg.src = frame.dataUrl;
       this.tlHoverImg.style.display = 'block';
       return;
@@ -2242,6 +2252,21 @@ class PlayerPage implements PageInstance, PlayerApi {
       this.tlHoverImg.src = url;
       this.tlHoverImg.style.display = 'block';
     });
+  }
+
+  /** Binary search: the storyboard is sorted by time. */
+  private nearestFrame(time: number): { time: number; dataUrl: string } {
+    const frames = this.storyboard;
+    let low = 0;
+    let high = frames.length - 1;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (frames[mid].time < time) low = mid + 1;
+      else high = mid;
+    }
+    const after = frames[low];
+    const before = frames[Math.max(0, low - 1)];
+    return Math.abs(before.time - time) <= Math.abs(after.time - time) ? before : after;
   }
 
   private seekFromPointer(event: PointerEvent): void {

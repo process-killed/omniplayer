@@ -7,6 +7,7 @@ import { formatBytes, formatRelative, formatTime } from '../../utils/format';
 import { library } from '../../storage/library';
 import { detectCapabilities } from '../../core/capabilities';
 import { thumbnails } from '../../media/thumbnails';
+import { whenIdle } from '../../utils/scheduling';
 import { toast } from '../dom';
 
 export function createHomePage(ctx: PageContext): PageInstance {
@@ -128,15 +129,18 @@ export function createHomePage(ctx: PageContext): PageInstance {
       });
       list.append(row);
       if (!entry.poster) {
-        const spec = entry.kind === 'url' && entry.url ? session.specFromUrl(entry.url, entry.name) : null;
-        if (spec) {
+        // Decoding a poster competes with the click that opened this page, so it
+        // waits for idle. The row is fully usable in the meantime.
+        whenIdle(() => {
+          const spec = entry.kind === 'url' && entry.url ? session.specFromUrl(entry.url, entry.name) : null;
+          if (!spec) return;
           void thumbnails.getPoster(spec).then((poster) => {
             if (!poster) return;
             const thumb = row.querySelector<HTMLElement>('.media-row__thumb');
             if (thumb) thumb.innerHTML = `<img src="${poster}" alt="" loading="lazy" />`;
             void library.recordProgress({ ...entry, poster });
           });
-        }
+        }, 1500);
       }
     }
     continueSection.append(title, list);

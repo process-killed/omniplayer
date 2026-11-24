@@ -3404,3 +3404,25 @@ pre::-webkit-scrollbar,
   font-size: 12.5px;
   color: var(--txt-3);
 }
+
+/* A page that is being built shows a quiet placeholder instead of a frozen
+   click. The build itself is deferred by one task so the tap paints. */
+#main.is-loading::after {
+  content: '';
+  display: block;
+  margin: 28px auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #main.is-loading::after { animation-duration: 2s; }
+}

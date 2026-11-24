@@ -1,5 +1,6 @@
 import type { RouteName } from '../types';
 import { Router } from './router';
+import { yieldToMain } from '../utils/scheduling';
 import { store } from './store';
 import { Session } from './session';
 import { el, esc, openModal, toast, toastAction } from '../ui/dom';
@@ -84,6 +85,8 @@ export class App {
   private readonly ctx: PageContext;
   private readonly shell: HTMLElement;
   private readonly pageHost: HTMLElement;
+  /** Guards the deferred page build against a faster second navigation. */
+  private mountToken = 0;
   private readonly navHost: HTMLElement;
   private readonly topbarTitle: HTMLElement;
   private readonly tabbar: HTMLElement;
@@ -351,6 +354,9 @@ export class App {
       this.syncInstallPill();
       return;
     }
+    // Clicking the page you are already on must not rebuild it — that alone was
+    // a few hundred milliseconds on the library page.
+    if (route === this.lastRoute && (this.page || this.playerPage)) return;
     this.lastRoute = route;
 
     // Tear down the previous page.
@@ -383,11 +389,22 @@ export class App {
     document.body.classList.remove('is-player-route', 'is-embed-route');
 
     const factory = this.factoryFor(route);
-    const page = factory(this.ctx);
-    this.pageHost.append(page.el);
-    this.page = page;
-    page.onShow?.();
-    this.syncInstallPill();
+
+    // Paint the click first, then build. Constructing a settings or library page
+    // takes long enough to be visible in INP; a frame of "loading" costs nothing
+    // and the tap is acknowledged immediately.
+    this.pageHost.classList.add('is-loading');
+    const token = ++this.mountToken;
+    void (async () => {
+      await yieldToMain();
+      if (token !== this.mountToken) return;
+      const page = factory(this.ctx);
+      this.pageHost.classList.remove('is-loading');
+      this.pageHost.append(page.el);
+      this.page = page;
+      page.onShow?.();
+      this.syncInstallPill();
+    })();
   }
 
   private factoryFor(route: RouteName): (ctx: PageContext) => PageInstance {
