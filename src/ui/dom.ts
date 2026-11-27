@@ -56,15 +56,30 @@ export function qsa<T extends Element = HTMLElement>(selector: string, root: Par
   return Array.from(root.querySelectorAll<T>(selector));
 }
 
+/**
+ * Where floating UI must be mounted.
+ *
+ * In fullscreen only the fullscreen element's subtree is rendered — anything
+ * appended to <body> is invisible. That is why the ⋮ menu and the bookmark
+ * toast "did nothing" in fullscreen: they were being drawn outside the tree
+ * that is on screen.
+ */
+export function overlayHost(): HTMLElement {
+  const fullscreen = document.fullscreenElement as HTMLElement | null;
+  return fullscreen ?? document.body;
+}
+
 /* ------------------------------------------------------------------ toasts */
 
 type ToastKind = 'ok' | 'err' | 'warn' | 'info';
 
 function toastHost(): HTMLElement {
-  let host = document.querySelector<HTMLElement>('.toasts');
+  const parent = overlayHost();
+  // One host per parent: a fullscreen element needs its own.
+  let host = parent.querySelector<HTMLElement>(':scope > .toasts');
   if (!host) {
     host = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
-    document.body.append(host);
+    parent.append(host);
   }
   return host;
 }
@@ -141,7 +156,7 @@ export function openModal(options: ModalOptions): { close: () => void; root: HTM
 
   modal.append(head, body, foot);
   backdrop.append(modal);
-  document.body.append(backdrop);
+  overlayHost().append(backdrop);
 
   const close = () => {
     backdrop.remove();
@@ -211,6 +226,13 @@ export function confirmDialog(
 
 let activePopover: { node: HTMLElement; cleanup: () => void } | null = null;
 
+if (typeof document !== 'undefined') {
+  document.addEventListener('fullscreenchange', () => {
+    // A menu opened inside the previous fullscreen element is no longer reachable.
+    document.querySelectorAll('.popover').forEach((node) => node.remove());
+  });
+}
+
 export function closePopover(): void {
   activePopover?.cleanup();
   activePopover = null;
@@ -225,7 +247,7 @@ export function showPopover(
   const pop = el('div', { class: 'popover', role: 'menu' });
   if (typeof content === 'string') pop.innerHTML = content;
   else pop.append(content);
-  document.body.append(pop);
+  overlayHost().append(pop);
 
   const rect = anchor.getBoundingClientRect();
   const width = options.width ?? pop.offsetWidth;
