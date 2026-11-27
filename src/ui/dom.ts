@@ -271,7 +271,7 @@ export function showPopover(
   }
   document.addEventListener('mousedown', onDocDown, true);
   document.addEventListener('keydown', onKey);
-  window.addEventListener('scroll', onScroll, true);
+  window.addEventListener('scroll', onScroll, { capture: true, passive: true });
   window.addEventListener('resize', close);
   activePopover = { node: pop, cleanup: close };
   return pop;

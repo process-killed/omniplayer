@@ -55,7 +55,7 @@ export class GestureManager {
     if (this.attached) return;
     this.attached = true;
     this.layer.addEventListener('pointerdown', this.onPointerDown);
-    this.layer.addEventListener('pointermove', this.onPointerMove);
+    this.layer.addEventListener('pointermove', this.onPointerMove, { passive: true });
     this.layer.addEventListener('pointerup', this.onPointerUp);
     this.layer.addEventListener('pointercancel', this.onPointerCancel);
     this.layer.addEventListener('contextmenu', this.onContextMenu);

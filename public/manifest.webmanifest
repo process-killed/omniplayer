@@ -2,8 +2,8 @@
   "name": "OmniPlay — Universal Media Player",
   "short_name": "OmniPlay",
   "description": "Private, universal browser media player: local files, direct links, HLS, DASH, multi-audio and styled ASS subtitles. Everything plays on your device.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "display_override": [
     "standalone",
@@ -208,5 +208,6 @@
   "related_applications": [],
   "edge_side_panel": {
     "preferred_width": 480
-  }
+  },
+  "id": "./"
 }

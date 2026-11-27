@@ -3426,3 +3426,132 @@ pre::-webkit-scrollbar,
 @media (prefers-reduced-motion: reduce) {
   #main.is-loading::after { animation-duration: 2s; }
 }
+
+/* ============================================================================
+   Mobile & small-screen refinements
+
+   These are the platform behaviours that make a web app feel native on a phone:
+   no grey flash on tap, no accidental text inflation, no pull-to-refresh while
+   dragging inside the player, and touch targets that stay at 44 px even when the
+   layout gets tight.
+   ========================================================================= */
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  /* Pull-to-refresh fights the player on Android; keep it on scroll pages only. */
+  overscroll-behavior-y: contain;
+}
+
+body.is-player-route {
+  overscroll-behavior: none;
+}
+
+/* Dynamic viewport units: the URL bar collapsing must not crop the layout. */
+.shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Small phones: tighten the chrome without shrinking touch targets. */
+@media (max-width: 380px) {
+  body {
+    font-size: 14px;
+  }
+
+  .topbar {
+    padding-inline: 10px;
+  }
+
+  .page {
+    padding-inline: 12px;
+  }
+
+  .card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .nav__item {
+    min-height: 44px;
+  }
+
+  .btn {
+    padding: 9px 12px;
+  }
+
+  /* Long file names and URLs must never widen the page. */
+  .media-row__name,
+  .dl-row__name,
+  .ext-card__title b {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Landscape phones: the top bar and tab bar both cost vertical space. */
+@media (max-height: 430px) and (orientation: landscape) {
+  .topbar {
+    min-height: 44px;
+  }
+
+  .mobile-tabbar {
+    display: none;
+  }
+}
+
+/* Anyone who asked for less motion gets none of it, everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Keep focus visible for keyboard users while removing the mouse ring. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Touch targets: 39 px nav rows are below the 44 px guideline that both Apple
+   and Google publish, and they are the most-tapped control in the app. */
+.nav__item {
+  min-height: 44px;
+}
+
+@media (pointer: coarse) {
+  .nav__item,
+  .mobile-tabbar button,
+  .tabbar__item,
+  .seg__item,
+  .chip {
+    min-height: 44px;
+  }
+
+  /* Give the tap a little more room without moving the layout. */
+  .nav__item {
+    padding-block: 10px;
+  }
+}
+
+/* Nothing user-facing drops below 11 px — 10 px is unreadable on a phone. */
+.chip,
+.nav__label,
+.topbar__sub,
+.media-row__meta,
+.dl-row__meta,
+.ext-card__meta {
+  font-size: max(11px, 0.7rem);
+}

@@ -525,7 +525,7 @@ class PlayerPage implements PageInstance, PlayerApi {
 
     // Keep chrome visible while interacting with bars.
     for (const selector of ['.pbar--top', '.pbar--bottom']) {
-      this.el.querySelector(selector)?.addEventListener('pointermove', () => this.showChrome(true));
+      this.el.querySelector(selector)?.addEventListener('pointermove', () => this.showChrome(true), { passive: true });
     }
 
     const revealChrome = rafThrottle((event: PointerEvent) => {
