@@ -1587,6 +1587,14 @@ body.is-player-route .toasts {
   .pbar__actions .pbtn[data-collapse='1'] {
     display: none;
   }
+
+  /* Bookmarking is a primary action, not a secondary one. Hiding it made the
+     feature look broken on every phone, so it keeps its slot and the ⋮ sheet
+     stays the place where the rest of the controls live. */
+  .controls__right .pbtn#btn-bookmark,
+  .pbar__actions .pbtn#btn-bookmark {
+    display: inline-flex;
+  }
 }
 
 @media (max-width: 640px) {
@@ -2301,7 +2309,6 @@ body.is-player-route .toasts {
   #btn-pip,
   #btn-quality,
   #btn-shot,
-  #btn-bookmark,
   #btn-brightness {
     display: none !important;
   }
@@ -2563,5 +2570,23 @@ body.is-player-route .toasts {
   /* The seek preview bubble would cover the whole frame. */
   .seek-preview {
     display: none !important;
+  }
+}
+
+/* The ⋮ and bookmark buttons stay tappable at every size. On a phone the ⋮ was
+   32 px — under the 44 px guideline for the button that opens everything else. */
+@media (pointer: coarse) {
+  #btn-more,
+  #btn-bookmark {
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+
+@container player (max-width: 340px) or (max-height: 200px) {
+  #btn-more,
+  #btn-bookmark {
+    min-width: 34px;
+    min-height: 34px;
   }
 }
