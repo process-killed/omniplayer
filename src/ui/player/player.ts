@@ -532,6 +532,29 @@ class PlayerPage implements PageInstance, PlayerApi {
       if (event.pointerType === 'mouse') this.showChrome();
     });
     this.el.addEventListener('pointermove', revealChrome, { passive: true });
+
+    this.el.addEventListener(
+      'pointerdown',
+      (event) => {
+        if (this.el.dataset.chrome !== 'hidden') return;
+        if (event.pointerType !== 'mouse') return;
+
+        // Bars are pointer-events:none while hidden, so peek at them to find out
+        // what the viewer was aiming at, then deliver the click they intended.
+        this.el.classList.add('is-chrome-peek');
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        this.el.classList.remove('is-chrome-peek');
+        this.showChrome(true);
+
+        const button = target instanceof Element ? target.closest('.pbar button') : null;
+        if (button instanceof HTMLElement && !button.hasAttribute('disabled')) {
+          event.preventDefault();
+          event.stopPropagation();
+          button.click();
+        }
+      },
+      true,
+    );
     this.el.addEventListener('keydown', (event) => {
       if (isTypingTarget(event.target)) return;
       this.showChrome();
