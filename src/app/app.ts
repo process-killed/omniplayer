@@ -17,6 +17,7 @@ import { createSharePage } from '../ui/pages/share';
 import { createTorrentsPage } from '../ui/pages/torrents';
 import { createDownloadsPage } from '../ui/pages/downloads';
 import { createToolsPage } from '../ui/pages/tools';
+import { createSubtitleDoctorPage } from '../ui/pages/subtitleDoctor';
 import { createDevelopersPage } from '../ui/pages/developers';
 import { createPlaylistPage } from '../ui/pages/playlist';
 import { createHistoryPage } from '../ui/pages/history';
@@ -44,6 +45,7 @@ const NAV: NavItem[] = [
   { route: 'torrents', label: 'Torrents', iconName: 'cloud', group: 'main' },
   { route: 'downloads', label: 'Downloads', iconName: 'download', group: 'main' },
   { route: 'tools', label: 'Media tools', iconName: 'sliders', group: 'main' },
+  { route: 'subtitle-doctor', label: 'Subtitle Doctor', iconName: 'subtitles', group: 'main' },
   { route: 'share', label: 'Embed & share', iconName: 'share', group: 'main' },
   { route: 'developers', label: 'For developers', iconName: 'code', group: 'main' },
   { route: 'diagnostics', label: 'Diagnostics', iconName: 'activity', group: 'system' },
@@ -61,6 +63,7 @@ const TITLES: Record<RouteName, string> = {
   torrents: 'Torrents',
   downloads: 'Downloads',
   tools: 'Media tools',
+  'subtitle-doctor': 'Subtitle Doctor',
   developers: 'For developers',
   playlist: 'Playlist',
   history: 'History',
@@ -421,6 +424,8 @@ export class App {
         return createDownloadsPage;
       case 'tools':
         return createToolsPage;
+      case 'subtitle-doctor':
+        return createSubtitleDoctorPage;
       case 'developers':
         return createDevelopersPage;
       case 'playlist':

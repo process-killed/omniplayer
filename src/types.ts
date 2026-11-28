@@ -413,6 +413,7 @@ export type RouteName =
   | 'torrents'
   | 'downloads'
   | 'tools'
+  | 'subtitle-doctor'
   | 'developers'
   | 'playlist'
   | 'history'
